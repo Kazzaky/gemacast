@@ -76,11 +76,13 @@ impl<F: CaptureFactory, N: ErrorNotifier> AudioStreamEngine<F, N> {
                         bitrate
                     );
 
-                    let target = if let Some(addr) = target_addr {
-                        TargetId::Udp(addr)
-                    } else {
-                        TargetId::Tcp(device_id.clone())
+                    let Some(target_addr) = target_addr else {
+                        let _ = reply.send(Err(
+                            "UDP audio target is required; legacy TCP/ADB audio is disabled".into()
+                        ));
+                        continue;
                     };
+                    let target = TargetId::Udp(target_addr);
 
                     let old_session = self.active_player_sessions.get(&device_id).cloned();
                     let result = match self
@@ -100,7 +102,7 @@ impl<F: CaptureFactory, N: ErrorNotifier> AudioStreamEngine<F, N> {
                             }
                             self.active_player_sessions.insert(
                                 device_id.clone(),
-                                StreamSession::new(target_addr, final_source, bitrate, audio_key),
+                                StreamSession::new(Some(target_addr), final_source, bitrate, audio_key),
                             );
                             self.session_generations.insert(device_id, generation);
                             Ok(())
@@ -511,7 +513,7 @@ mod tests {
         tx.send(AudioStreamCommand::Subscribe {
             device_id: device_id.clone(),
             generation: 1,
-            target_addr: None, // TCP mode
+            target_addr: Some("127.0.0.1:23556".parse().unwrap()),
             source: Some(AudioSource::Desktop),
             bitrate: None,
             audio_key: test_audio_key(),
@@ -575,7 +577,7 @@ mod tests {
         tx.send(AudioStreamCommand::Subscribe {
             device_id: device_id.clone(),
             generation: current_generation,
-            target_addr: None,
+            target_addr: Some("127.0.0.1:23556".parse().unwrap()),
             source: Some(AudioSource::Desktop),
             bitrate: None,
             audio_key: test_audio_key(),
