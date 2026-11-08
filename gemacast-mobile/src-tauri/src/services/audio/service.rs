@@ -3,6 +3,7 @@ use std::sync::Arc;
 use std::sync::atomic::{AtomicBool, Ordering};
 use std::time::Duration;
 
+use gemacast_core::audio::AudioSessionKey;
 use gemacast_core::control::types::ConnectReq;
 use gemacast_core::domain::types::{AudioSource, ConnectionMode, DeviceId, JitterConfig, LinkPair};
 
@@ -132,6 +133,12 @@ impl AudioService {
             })
             .await?;
 
+        let audio_key = AudioSessionKey::from_session_token(
+            response.session_token.as_deref().ok_or_else(|| {
+                "PC did not return an authenticated audio session token".to_string()
+            })?,
+        )?;
+
         let phone_link = params
             .phone_network_link
             .unwrap_or(gemacast_core::domain::types::NetworkLink::Unknown);
@@ -172,6 +179,7 @@ impl AudioService {
                 device_id: params.device_id.to_string(),
                 bitrate: params.bitrate,
                 network_link: link_pair.effective_link(),
+                audio_key,
             })
             .await
         {
@@ -327,6 +335,7 @@ impl AudioService {
                 device_id: info.device_id,
                 bitrate: info.bitrate,
                 network_link: info.network_link,
+                audio_key: info.audio_key,
             })
             .await?;
 
