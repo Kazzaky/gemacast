@@ -327,7 +327,7 @@ describe('reconnectOnAppOpen', () => {
     mockBridge(ALL_MODES);
     await reconnectOnAppOpen();
 
-    expect(useAppStore.getState().settings.mode).toBe(ConnectionMode.Adb);
+    expect(useAppStore.getState().settings.mode).toBe(ConnectionMode.Usb);
     expect(invokeCalls.some((c) => c.cmd === 'connect_to_streamer')).toBe(false);
     expect(useAppStore.getState().lastConnectedStreamer?.deviceId).toBe('pc-1');
   });
