@@ -11,10 +11,8 @@ keywords.workspace = true
 categories.workspace = true
 
 [package.metadata.dist]
-# Bundle ADB binaries (downloaded by build.rs) into release archives
 # Files are at the crate root so they appear beside gemacast-pc(.exe) in the archive
 # build.rs creates placeholder stubs for cross-platform filenames so cargo-dist doesn't fail
-include = ["adb", "adb.exe", "AdbWinApi.dll", "AdbWinUsbApi.dll"]
 
 [build-dependencies]
 embed-manifest = "1"
@@ -70,7 +68,6 @@ section = "sound"
 depends = "$auto"
 assets = [
     ["target/release/gemacast-pc", "usr/bin/", "755"],
-    ["target/release/adb", "usr/lib/gemacast/adb", "755"],
     ["linux/gemacast-pc.desktop", "usr/share/applications/", "644"],
     ["linux/gemacast-pc.png", "usr/share/icons/hicolor/256x256/apps/gemacast-pc.png", "644"],
 ]
@@ -79,7 +76,6 @@ assets = [
 [package.metadata.generate-rpm]
 assets = [
     { source = "target/release/gemacast-pc", dest = "/usr/bin/gemacast-pc", mode = "0755" },
-    { source = "target/release/adb", dest = "/usr/lib/gemacast/adb", mode = "0755" },
     { source = "linux/gemacast-pc.desktop", dest = "/usr/share/applications/gemacast-pc.desktop", mode = "0644" },
     { source = "linux/gemacast-pc.png", dest = "/usr/share/icons/hicolor/256x256/apps/gemacast-pc.png", mode = "0644" },
 ]
