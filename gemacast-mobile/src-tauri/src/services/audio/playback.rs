@@ -2,6 +2,7 @@ use std::net::IpAddr;
 use std::sync::atomic::{AtomicBool, AtomicU32};
 use std::sync::{Arc, RwLock};
 
+use gemacast_core::audio::AudioSessionKey;
 use gemacast_core::domain::error::{GemaCastError, NetworkError};
 use gemacast_core::domain::types::{JitterConfig, NetworkLink};
 use gemacast_core::stream::player::{AudioStreamPlayer, PlaybackControl};
@@ -15,6 +16,7 @@ pub struct SessionPlayerRequest {
     pub exclusive_mode: bool,
     pub target_ip: Option<IpAddr>,
     pub network_link: NetworkLink,
+    pub audio_key: AudioSessionKey,
 }
 
 pub struct SessionPlayerHandle {
@@ -87,6 +89,7 @@ impl SessionPlayer {
                 Some(channels.telemetry),
                 Some(channels.network_rtt),
                 request.target_ip,
+                request.audio_key,
             )
             .await;
 
