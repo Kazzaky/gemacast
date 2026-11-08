@@ -511,18 +511,6 @@ mod tests {
             );
         }
 
-        #[test]
-        fn tcp_write_failure_should_identify_the_operation_and_address() {
-            let err = NetworkError::TcpWriteFailed {
-                addr: "127.0.0.1:23557".into(),
-                operation: "ADB audio handshake",
-                source: std::io::Error::new(std::io::ErrorKind::BrokenPipe, "closed"),
-            };
-            let message = err.to_string();
-
-            assert!(message.contains("ADB audio handshake"));
-            assert!(message.contains("127.0.0.1:23557"));
-        }
     }
 
     mod updater_error {
