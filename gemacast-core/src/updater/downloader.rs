@@ -236,7 +236,7 @@ impl DownloadProgress {
 
 #[cfg(test)]
 mod url_tests {
-    use super::validate_artifact_url;
+    use super::{approved_redirect_url, validate_artifact_url};
 
     #[test]
     fn accepts_only_https_release_assets_from_this_fork() {
