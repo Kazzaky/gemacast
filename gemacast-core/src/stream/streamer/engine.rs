@@ -549,12 +549,12 @@ mod tests {
     }
 
     #[tokio::test]
-    async fn stale_transport_close_should_not_remove_a_newer_adb_session() {
+    async fn stale_tcp_transport_close_should_not_remove_a_newer_session() {
         let (failure_tx, mut failure_rx) = mpsc::unbounded_channel();
         let mut engine = AudioStreamEngine::new(MockCaptureFactory, true, MockErrorNotifier)
             .with_session_failure_sender(failure_tx);
         let (tx, rx) = mpsc::channel(10);
-        let device_id = DeviceId("adb-device".to_string());
+        let device_id = DeviceId("tcp-device".to_string());
         let current_generation = 2;
 
         let engine_task = tokio::spawn(async move {
