@@ -15,6 +15,10 @@ jobs:
       checks: write
     steps:
       - uses: actions/checkout@v6
+      - name: Verify pinned glib security backport
+        run: |
+          grep -F 'git+https://github.com/jcfs/gtk-rs-core?rev=ea720152f28e293ef4362ee844ee5cc499f32d2a#ea720152f28e293ef4362ee844ee5cc499f32d2a' Cargo.lock
+
       - name: Audit Rust dependencies
         uses: rustsec/audit-check@v2
         with:
@@ -22,10 +26,11 @@ jobs:
           # Transitive deps we can't fix:
           # RUSTSEC-2021-0119: nix (unmaintained), via cpal
           # RUSTSEC-2020-0168: mach (unmaintained), via cpal/coreaudio
-          # RUSTSEC-2024-0436: paste (archived), via rav1e
+          # RUSTSEC-2024-0436: paste (archived), via netlink-packet-core/netlink-packet-utils
           # RUSTSEC-2024-0370: proc-macro-error (unmaintained), via tauri
           # RUSTSEC-2025-0075,-0080,-0081,-0098,-0100: unic-* (unmaintained), via tauri
-          # RUSTSEC-2024-0429: glib VariantStrIter unsoundness, via gtk-rs
+          # RUSTSEC-2024-0429: glib 0.18.5 uses a pinned Debian 0.18.5-7 backport.
+          # cargo-audit still matches the crates.io version advisory; see patches/glib-0.18.5-rustsec-2024-0429.patch.
           ignore: >-
             RUSTSEC-2021-0119,
             RUSTSEC-2020-0168,RUSTSEC-2024-0436,RUSTSEC-2024-0370,
