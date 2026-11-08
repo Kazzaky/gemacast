@@ -10,7 +10,7 @@ use std::net::SocketAddr;
 pub trait AudioController: Send + Sync {
     /// Start streaming audio to a device.
     ///
-    /// `target_addr` is `None` for ADB/TCP devices (loopback), `Some` for UDP/WiFi.
+    /// `target_addr` is the discovered UDP endpoint for Wi-Fi or USB-tethered devices.
     async fn subscribe(
         &self,
         device_id: DeviceId,
