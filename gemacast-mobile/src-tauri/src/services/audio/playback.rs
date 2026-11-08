@@ -2,10 +2,9 @@ use std::net::IpAddr;
 use std::sync::atomic::{AtomicBool, AtomicU32};
 use std::sync::{Arc, RwLock};
 
-use gemacast_core::control::SessionGeneration;
 use gemacast_core::domain::error::{GemaCastError, NetworkError};
-use gemacast_core::domain::types::{ConnectionMode, DeviceId, JitterConfig, NetworkLink};
-use gemacast_core::stream::player::{AudioSessionCredentials, AudioStreamPlayer, PlaybackControl};
+use gemacast_core::domain::types::{JitterConfig, NetworkLink};
+use gemacast_core::stream::player::{AudioStreamPlayer, PlaybackControl};
 use tokio::sync::{mpsc, oneshot};
 use tokio::task::JoinHandle;
 
@@ -13,14 +12,9 @@ use crate::traits::FrontendNotifier;
 
 pub struct SessionPlayerRequest {
     pub jitter_config: JitterConfig,
-    pub is_tcp: bool,
     pub exclusive_mode: bool,
     pub target_ip: Option<IpAddr>,
-    pub mode: ConnectionMode,
-    pub device_id: String,
     pub network_link: NetworkLink,
-    pub session_token: Option<String>,
-    pub session_generation: Option<SessionGeneration>,
 }
 
 pub struct SessionPlayerHandle {
@@ -43,7 +37,7 @@ impl SessionPlayer {
 
     pub fn spawn(&self, request: SessionPlayerRequest) -> Result<SessionPlayerHandle, String> {
         let jitter_config = Arc::new(RwLock::new(request.jitter_config.clone()));
-        let transport_mode = Arc::new(AtomicBool::new(request.is_tcp));
+        let transport_mode = Arc::new(AtomicBool::new(false));
         let volume = Arc::new(AtomicU32::new(f32::to_bits(1.0)));
         let (shutdown, shutdown_rx) = oneshot::channel();
 
@@ -87,19 +81,12 @@ impl SessionPlayer {
             return;
         }
 
-        let credentials = AudioSessionCredentials {
-            device_id: DeviceId(request.device_id),
-            session_token: request.session_token,
-            session_generation: request.session_generation,
-        };
         let result = player
             .run_audio_receive_loop(
                 Some(channels.streamer_ip),
                 Some(channels.telemetry),
                 Some(channels.network_rtt),
                 request.target_ip,
-                request.mode,
-                credentials,
             )
             .await;
 
