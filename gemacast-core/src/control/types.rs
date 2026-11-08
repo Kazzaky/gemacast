@@ -184,7 +184,7 @@ mod tests {
             let req = ConnectReq {
                 device_id: DeviceId("dev_1".to_string()),
                 device_name: "Test".to_string(),
-                mode: ConnectionMode::Adb,
+                mode: ConnectionMode::Wifi,
                 jitter_config: JitterConfig::default(),
                 bitrate: Some(256_000),
                 source: Some(AudioSource::Process {
