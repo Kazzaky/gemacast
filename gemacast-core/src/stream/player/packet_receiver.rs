@@ -4,6 +4,8 @@ use super::playback_control::PlaybackControl;
 use super::receive_diagnostics::ReceiveDiagnostics;
 use super::source_idle::SourceIdleDetector;
 use crate::audio::pcm_datagram::PcmDatagram;
+use crate::audio::encryption::{AudioPacketCipher, AudioReplayWindow, AUDIO_TAG_LEN};
+use crate::audio::AudioSessionKey;
 use crate::audio::{MAX_OPUS_PACKET_SIZE, SEQ_NUM_SIZE};
 use crate::jitter::RawPacket;
 use crate::ports::transport::AudioPacketTransport;
@@ -33,6 +35,7 @@ impl PacketReceiver {
         allowed_streamer_ip: Option<std::net::IpAddr>,
         playback_control: PlaybackControl,
         source_idle_after: Option<std::time::Duration>,
+        audio_key: AudioSessionKey,
     ) -> std::thread::JoinHandle<()> {
         std::thread::spawn(move || {
             #[cfg(target_os = "android")]
@@ -42,12 +45,14 @@ impl PacketReceiver {
             }
 
             let mut recv_buff =
-                vec![0u8; SEQ_NUM_SIZE + crate::audio::FORMAT_FLAG_SIZE + MAX_OPUS_PACKET_SIZE];
+                vec![0u8; SEQ_NUM_SIZE + crate::audio::FORMAT_FLAG_SIZE + MAX_OPUS_PACKET_SIZE + AUDIO_TAG_LEN];
             let mut last_packet_time = std::time::Instant::now();
             let mut first_packet_received = false;
             let mut source_idle_detector = source_idle_after.map(SourceIdleDetector::new);
             let mut pcm_assembly = PcmAssembly::new();
             let mut diagnostics = ReceiveDiagnostics::new(std::time::Instant::now());
+            let cipher = AudioPacketCipher::new(&audio_key);
+            let mut replay_window = AudioReplayWindow::default();
 
             while active.load(Ordering::Relaxed) {
                 let now = std::time::Instant::now();
@@ -58,7 +63,7 @@ impl PacketReceiver {
                     pcm_assembly.expired_frames,
                 );
                 let result = transport.receive_audio_packet(&mut recv_buff);
-                let (len, streamer_addr) = match result {
+                let (mut len, streamer_addr) = match result {
                     Ok(r) => {
                         if allowed_streamer_ip.is_some_and(|allowed| allowed != r.1.ip()) {
                             tracing::debug!(
@@ -81,12 +86,6 @@ impl PacketReceiver {
                             }
                             continue;
                         }
-                        diagnostics.received(r.0, std::time::Instant::now());
-                        if !first_packet_received {
-                            tracing::info!("[Player] First audio packet received from {}", r.1,);
-                        }
-                        last_packet_time = std::time::Instant::now();
-                        first_packet_received = true;
                         r
                     }
                     Err(e) => {
@@ -128,6 +127,22 @@ impl PacketReceiver {
                         continue;
                     }
                 };
+
+                // Authenticate before decoding, metrics, liveness updates, or replay bookkeeping.
+                // Echo packets were deliberately handled above and remain outside the audio AEAD.
+                let Ok(plain_len) = cipher.open(&mut recv_buff[..len]) else {
+                    continue;
+                };
+                len = plain_len;
+                if !replay_window.accept(&recv_buff[..len]) {
+                    continue;
+                }
+                diagnostics.received(len, std::time::Instant::now());
+                if !first_packet_received {
+                    tracing::info!("[Player] First authenticated audio packet received from {}", streamer_addr);
+                }
+                last_packet_time = std::time::Instant::now();
+                first_packet_received = true;
 
                 streamer_port.store(streamer_addr.port(), Ordering::Relaxed);
 
