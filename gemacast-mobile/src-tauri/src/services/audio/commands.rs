@@ -308,7 +308,6 @@ pub struct NetworkLinkPairInfo {
 fn network_link_label(link: gemacast_core::domain::types::NetworkLink) -> String {
     use gemacast_core::domain::types::NetworkLink;
     match link {
-        NetworkLink::Adb => "ADB (localhost)".to_string(),
         NetworkLink::UsbTether => "USB Tether".to_string(),
         NetworkLink::Wifi5Ghz => "WiFi 5 GHz".to_string(),
         NetworkLink::Wifi2_4Ghz => "WiFi 2.4 GHz".to_string(),
