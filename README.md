@@ -2,10 +2,10 @@
 
 # <img src="assets/logo_transparent.svg" height="56" alt="Gemacast logo" valign="middle" /> Gemacast
 
-[![Release](https://img.shields.io/github/v/release/apirJS/gemacast?label=release)](https://github.com/apirJS/gemacast/releases/latest)
+[![Release](https://img.shields.io/github/v/release/apirJS/gemacast?label=release)](https://github.com/Kazzaky/gemacast/releases/latest)
 [![License](https://img.shields.io/github/license/apirJS/gemacast)](LICENSE)
 
-PC-to-Android audio streaming over Wi-Fi, USB tethering, or ADB.
+PC-to-Android audio streaming over Wi-Fi or USB tethering.
 
 [Download](https://github.com/apirJS/gemacast/releases/latest) ·
 [Architecture](ARCHITECTURE.md) · [Contributing](CONTRIBUTING.md) ·
@@ -71,10 +71,9 @@ xattr -d com.apple.quarantine /Applications/Gemacast.app
 | --- | --- | --- |
 | Wi-Fi | Connect both devices to the same reachable LAN | UDP audio; HTTPS/WSS control |
 | USB tethering | Connect USB and enable Android USB tethering | Same protocol as Wi-Fi over the tethered interface |
-| ADB | Enable USB debugging, connect USB, and approve the computer | TCP connections through automatic `adb reverse` |
 
 LAN discovery can be blocked by client isolation, guest networks, VPN routing,
-or firewall rules. ADB discovery uses the forwarded connection.
+or firewall rules. USB tethering provides a direct IP network between the devices.
 
 ## Audio
 
@@ -103,8 +102,6 @@ contribute to that delay.
 - UDP audio is neither encrypted nor authenticated. LAN streaming therefore
   requires a trusted network.
 - An authenticated phone can request the PC process list to select an audio source.
-- ADB audio passes through the approved debugging connection and has no separate
-  audio encryption.
 
 ## Network ports
 
@@ -116,8 +113,6 @@ contribute to that delay.
 
 The PC sends audio from an ephemeral UDP port. The phone returns heartbeat and
 RTT traffic to that sender port. Firewalls must allow the audio flow and replies.
-ADB forwards TCP 23557 (audio), 23558 (discovery), and 23559 (control); it needs
-no LAN firewall rule.
 
 The Linux [firewalld service](linux/gemacast.firewalld.xml) includes UDP
 23555–23556 and TCP 23559. Equivalent UFW rules:
@@ -130,7 +125,7 @@ sudo ufw allow 23559/tcp
 ## Interface
 
 <div align="center">
-  <img src="assets/mobile-stream-adb-demo.gif" alt="Android audio playback over ADB" height="400" />
+  <img src="web/src/assets/images/mobile-stream-demo.gif" alt="Android audio playback while streaming from a PC" height="400" />
 </div>
 
 <details>
