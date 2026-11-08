@@ -7,9 +7,9 @@ version = "0.6.0"
 edition = "2024"
 authors = ["Echa Apriliyanto <echa.apriliyanto.dev@gmail.com>"]
 license = "GPL-3.0-or-later"
-homepage = "https://github.com/apirJS/gemacast"
-description = "Low-latency real-time audio streaming from PC to Android over a local network and ADB."
-repository = "https://github.com/apirJS/gemacast"
+homepage = "https://github.com/Kazzaky/gemacast"
+description = "Low-latency real-time audio streaming from PC to Android over Wi-Fi and USB tethering."
+repository = "https://github.com/Kazzaky/gemacast"
 keywords = ["audio", "streaming"]
 categories = ["multimedia"]
 
