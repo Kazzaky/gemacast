@@ -1,6 +1,6 @@
 <script setup lang="ts">
 import mobileSettingView from '@/assets/images/mobile-setting-view.jpeg'
-import mobileStreamDemo from '@/assets/images/mobile-stream-adb-demo.gif'
+import mobileStreamDemo from '@/assets/images/mobile-stream-demo.gif'
 import pcSystemTray from '@/assets/images/pc-system-tray.png'
 import SectionHeading from '@/components/shared/SectionHeading.vue'
 import DemoShot from './DemoShot.vue'
@@ -17,7 +17,7 @@ const steps: Step[] = [
   },
   {
     title: 'Connect them on the same network',
-    body: 'Over Wi-Fi, USB tethering, or ADB.',
+    body: 'Over Wi-Fi or USB tethering.',
   },
   {
     title: 'Connect & approve the pairing req',
@@ -37,7 +37,7 @@ const steps: Step[] = [
   >
     <SectionHeading
       eyebrow="Demo"
-      title="~20 ms of buffer over ADB"
+      title="Adaptive low-latency audio buffer"
       subtitle="The phone shows its buffer, RTT, and jitter live."
     />
 
@@ -50,7 +50,7 @@ const steps: Step[] = [
         :height="1296"
         tall
         label="Phone / playing"
-        alt="The Gemacast player on an Android phone showing buffer and jitter while streaming desktop audio over ADB"
+        alt="The Gemacast player on an Android phone showing buffer and jitter while streaming desktop audio"
         caption="Buffer and jitter, the PC, and the audio source."
       />
 
@@ -61,7 +61,7 @@ const steps: Step[] = [
         tall
         label="Phone / settings"
         alt="The Gemacast settings screen on Android with buffer preset, bitrate, gain and transport mode controls"
-        caption="Buffer preset, bitrate, gain, and the Wi-Fi / USB / ADB switch."
+        caption="Buffer preset, bitrate, gain, and the Wi-Fi / USB connection selector."
       />
 
       <div class="flex flex-col gap-4 sm:gap-5 md:col-span-2 md:flex-row lg:col-span-1 lg:flex-col">
