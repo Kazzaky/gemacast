@@ -29,7 +29,7 @@ async-trait = "0.1"
 # under `not(debug_assertions)`. Crash reporting does not go through `tracing`.
 tracing = { version = "0.1", features = ["release_max_level_off"] }
 tracing-subscriber = { version = "0.3.23", features = ["env-filter"] }
-image = "0.25.10"
+image = { version = "0.25.10", default-features = false, features = ["png"] }
 fs2 = "0.4"
 reqwest = { version = "0.12", features = ["stream"] }
 semver = "1"
