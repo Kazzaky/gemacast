@@ -4,19 +4,17 @@
 //! player. The `AudioTransport` enum adapter and underlying transport
 //! structs live in [`crate::adapters::transport`].
 
-use crate::adapters::transport::{AudioTransport, TcpTransport, UdpTransport};
-use crate::control::SessionGeneration;
-use crate::domain::error::{GemaCastError, NetworkError, ProtocolError};
+use crate::adapters::transport::UdpTransport;
+use crate::domain::error::NetworkError;
 use crate::network::Ports;
 use std::net::{Ipv4Addr, SocketAddrV4};
 
-use super::handshake::AdbAudioHandshake;
 
 /// Creates the player-side UDP or ADB audio transport.
 pub(crate) struct AudioTransportFactory;
 
 impl AudioTransportFactory {
-    pub(crate) fn create_udp(
+    pub(crate) fn create(
         target_ip: Option<std::net::IpAddr>,
     ) -> Result<(UdpTransport, std::net::UdpSocket), NetworkError> {
         let addr =
@@ -87,66 +85,5 @@ impl AudioTransportFactory {
         Ok((UdpTransport { socket: std_socket }, heartbeat_socket))
     }
 
-    pub(crate) fn create_tcp(
-        device_id: &crate::domain::types::DeviceId,
-        session_token: Option<&str>,
-        session_generation: Option<SessionGeneration>,
-    ) -> Result<TcpTransport, GemaCastError> {
-        let adb_addr = format!("127.0.0.1:{}", Ports::ADB_AUDIO_TCP);
-        let stream_addr: std::net::SocketAddr = adb_addr
-            .parse()
-            .expect("INTERNAL: ADB loopback address must be valid");
 
-        let mut stream = std::net::TcpStream::connect_timeout(
-            &stream_addr,
-            std::time::Duration::from_millis(2500),
-        )
-        .map_err(|source| NetworkError::TcpConnectFailed {
-            addr: adb_addr.clone(),
-            source,
-        })?;
-
-        use std::io::Write;
-
-        let token = session_token.ok_or(ProtocolError::MissingAdbSessionCredential {
-            field: "session token",
-        })?;
-        let generation = session_generation.ok_or(ProtocolError::MissingAdbSessionCredential {
-            field: "session generation",
-        })?;
-        let handshake = AdbAudioHandshake::encode(device_id, token, generation)?;
-        stream
-            .write_all(&handshake)
-            .map_err(|source| NetworkError::TcpWriteFailed {
-                addr: adb_addr,
-                operation: "ADB audio handshake",
-                source,
-            })?;
-
-        let _ = stream.set_nodelay(true);
-        let _ = stream.set_read_timeout(Some(std::time::Duration::from_millis(2000)));
-
-        Ok(TcpTransport { stream })
-    }
-
-    /// Creates the appropriate audio transport based on the connection mode.
-    ///
-    /// Returns `(AudioTransport, Option<UdpSocket>)`:
-    /// - `AudioTransport`: Enum-dispatched transport (UDP or TCP)
-    /// - `Option<UdpSocket>`: Heartbeat socket (only for UDP/WiFi mode)
-    pub(crate) fn create(
-        mode: crate::domain::types::ConnectionMode,
-        target_ip: Option<std::net::IpAddr>,
-        device_id: &crate::domain::types::DeviceId,
-        session_token: Option<&str>,
-        session_generation: Option<SessionGeneration>,
-    ) -> Result<(AudioTransport, Option<std::net::UdpSocket>), GemaCastError> {
-        if mode == crate::domain::types::ConnectionMode::Adb {
-            let t = Self::create_tcp(device_id, session_token, session_generation)?;
-            return Ok((AudioTransport::Tcp(t), None));
-        }
-
-        let (udp, heartbeat_socket) = Self::create_udp(target_ip)?;
-        Ok((AudioTransport::Udp(udp), Some(heartbeat_socket)))
-    }
 }
