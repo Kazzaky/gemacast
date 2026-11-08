@@ -342,6 +342,9 @@ pub enum UpdaterError {
         expected_length: usize,
     },
 
+    #[error("update artifact URL is not an approved HTTPS release URL: {reason}")]
+    InvalidArtifactUrl { reason: &'static str },
+
     #[error("failed to request update artifact")]
     ArtifactRequestFailed(#[source] reqwest::Error),
 
