@@ -35,18 +35,6 @@ pub enum ProtocolError {
     #[error("packet payload is too large: maximum {max} bytes, got {got}")]
     PacketPayloadTooLarge { got: usize, max: usize },
 
-    #[error("ADB audio handshake field '{field}' is empty")]
-    EmptyAdbHandshakeField { field: &'static str },
-
-    #[error("ADB audio handshake field '{field}' is too long: maximum {max} bytes, got {got}")]
-    AdbHandshakeFieldTooLong {
-        field: &'static str,
-        got: usize,
-        max: usize,
-    },
-
-    #[error("ADB audio session credentials are missing: {field}")]
-    MissingAdbSessionCredential { field: &'static str },
 }
 
 #[derive(Debug, Clone, Copy)]
@@ -264,21 +252,6 @@ pub enum NetworkError {
 
     #[error("failed to serialize discovery payload")]
     Serialization(#[from] serde_json::Error),
-
-    #[error("failed to connect TCP stream to {addr}")]
-    TcpConnectFailed {
-        addr: String,
-        #[source]
-        source: std::io::Error,
-    },
-
-    #[error("failed to write {operation} to TCP stream at {addr}")]
-    TcpWriteFailed {
-        addr: String,
-        operation: &'static str,
-        #[source]
-        source: std::io::Error,
-    },
 
     #[error("connection lost or streamer stopped transmitting")]
     ConnectionLost,
