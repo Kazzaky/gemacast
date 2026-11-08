@@ -215,7 +215,7 @@ mod tests {
         let mut window = AudioReplayWindow::default();
         let mut packet = vec![0u8; PcmDatagram::HEADER];
         packet[8] = PcmDatagram::FORMAT;
-        packet[..8].copy_from_slice(&960u64.to_be_bytes());
+        packet[..8].copy_from_slice(&1_000_000u64.to_be_bytes());
         packet[17] = 1;
         assert!(window.accept(&packet));
         packet[17] = 0;
