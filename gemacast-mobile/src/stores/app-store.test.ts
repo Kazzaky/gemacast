@@ -112,7 +112,7 @@ describe('app-store — discovered streamers', () => {
     useAppStore.getState().patch({
       status: Status.Listening,
       lastConnectedStreamer: streamer,
-      lastConnectedMode: ConnectionMode.Adb,
+      lastConnectedMode: ConnectionMode.Usb,
       isSuspended: false,
     });
     const result = useAppStore.getState().updateDiscoveredStreamer(streamer);
