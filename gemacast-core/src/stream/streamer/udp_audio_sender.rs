@@ -2,7 +2,7 @@ use super::packet_pacer::PacketPacer;
 use super::{captured_frame::CapturedFrame, encode::AudioFrameEncoder};
 use crate::{
     adapters::audio_priority::AudioPriority,
-    audio::{FORMAT_UNCOMPRESSED, MAX_OPUS_PACKET_SIZE, pcm_datagram::PcmDatagram},
+    audio::{AudioSessionKey, encryption::{AudioPacketCipher, AUDIO_TAG_LEN}, FORMAT_UNCOMPRESSED, MAX_OPUS_PACKET_SIZE, pcm_datagram::PcmDatagram},
     domain::{
         error::{GemaCastError, NetworkError},
         types::AudioBitrate,
@@ -144,9 +144,10 @@ impl UdpAudioSender {
         encoder: Option<opus::Encoder>,
         bitrate: AudioBitrate,
         shutdown: oneshot::Receiver<()>,
+        audio_key: AudioSessionKey,
     ) -> Result<(), GemaCastError> {
         Self::new(target)?
-            .run_session(frames, encoder, bitrate, shutdown)
+            .run_session(frames, encoder, bitrate, shutdown, audio_key)
             .await
     }
 
@@ -156,13 +157,16 @@ impl UdpAudioSender {
         mut encoder: Option<opus::Encoder>,
         bitrate: AudioBitrate,
         mut shutdown: oneshot::Receiver<()>,
+        audio_key: AudioSessionKey,
     ) -> Result<(), GemaCastError> {
+        let cipher = AudioPacketCipher::new(&audio_key);
         let sender = &mut self;
         let target = sender.target;
         tracing::info!(%target, ?bitrate, pcm_datagram_bytes = PcmDatagram::SIZE, "[AudioSend] Session started");
         let mut opus_output = vec![0; MAX_OPUS_PACKET_SIZE];
         let mut packet = Vec::with_capacity(9 + MAX_OPUS_PACKET_SIZE);
         let mut chunk = [0; PcmDatagram::SIZE];
+        let mut encrypted_chunk = Vec::with_capacity(PcmDatagram::SIZE + AUDIO_TAG_LEN);
         let mut inbound = [0; 64];
         let mut pending: Option<Arc<CapturedFrame>> = None;
         let mut chunked = false;
@@ -219,7 +223,12 @@ impl UdpAudioSender {
                         let mut complete = true;
                         for chunk_index in 0..PcmDatagram::CHUNKS {
                             PcmDatagram::encode(&packet, sender.generation, chunk_index, &mut chunk);
-                            if !sender.send(&chunk) {
+                            encrypted_chunk.clear();
+                            encrypted_chunk.extend_from_slice(&chunk);
+                            cipher.seal(&mut encrypted_chunk).map_err(|reason| {
+                                NetworkError::SendFailed(std::io::Error::other(reason))
+                            })?;
+                            if !sender.send(&encrypted_chunk) {
                                 complete = false;
                                 break;
                             }
@@ -229,6 +238,9 @@ impl UdpAudioSender {
                             sender.counters.incomplete_pcm_frames += 1;
                         }
                     } else {
+                        cipher.seal(&mut packet).map_err(|reason| {
+                            NetworkError::SendFailed(std::io::Error::other(reason))
+                        })?;
                         let _ = sender.send(&packet);
                     }
                     pending = None;
@@ -245,6 +257,10 @@ impl UdpAudioSender {
 mod tests {
     use super::*;
 
+    fn test_audio_key() -> AudioSessionKey {
+        AudioSessionKey::from_session_token(&"22".repeat(32)).unwrap()
+    }
+
     #[tokio::test]
     async fn pcm_should_cross_udp_as_four_lossless_mtu_safe_chunks_without_negotiation() {
         let phone = UdpSocket::bind("127.0.0.1:0").await.unwrap();
@@ -254,7 +270,7 @@ mod tests {
         let base = sender.sequence_base;
         let (tx, rx) = broadcast::channel(16);
         let (stop, shutdown) = oneshot::channel();
-        let task = tokio::spawn(sender.run_session(rx, None, AudioBitrate::Uncompressed, shutdown));
+        let task = tokio::spawn(sender.run_session(rx, None, AudioBitrate::Uncompressed, shutdown, test_audio_key()));
         let exchange = async {
             let ping = EchoPacket::build();
             phone.send_to(&ping, server).await.unwrap();
@@ -312,7 +328,7 @@ mod tests {
         let sender = UdpAudioSender::new(phone.local_addr().unwrap()).unwrap();
         let (tx, rx) = broadcast::channel(16);
         let (stop, shutdown) = oneshot::channel();
-        let task = tokio::spawn(sender.run_session(rx, None, AudioBitrate::Uncompressed, shutdown));
+        let task = tokio::spawn(sender.run_session(rx, None, AudioBitrate::Uncompressed, shutdown, test_audio_key()));
         tx.send(Arc::new(CapturedFrame {
             samples: vec![0.0; 960],
             position: 0,
