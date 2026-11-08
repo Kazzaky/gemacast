@@ -21,6 +21,13 @@ pub struct PendingSession {
 }
 
 impl PendingSession {
+    /// Derive the per-session audio key from the same random token sent only
+    /// over the certificate-pinned TLS control channel.
+    pub fn audio_key(&self) -> crate::audio::AudioSessionKey {
+        crate::audio::AudioSessionKey::from_session_token(&self.token)
+            .expect("SessionAuthorizer always creates a 256-bit hexadecimal token")
+    }
+
     pub fn generation(&self) -> SessionGeneration {
         self.generation
     }
