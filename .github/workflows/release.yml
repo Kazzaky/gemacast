@@ -17,8 +17,8 @@ name: Release
 permissions:
   contents: read
 
-# This task will run whenever you push a git tag that looks like a version
-# like "1.0.0", "v0.1.0-prerelease.1", "my-app/0.1.0", "releases/v1.0.0", etc.
+# This release workflow is intentionally manual-only. Select an existing version tag
+# in the Actions UI; it will build and publish that tag.
 on:
   workflow_dispatch:
     inputs:
@@ -57,6 +57,15 @@ jobs:
           ref: ${{ inputs.release_tag }}
           persist-credentials: false
           submodules: recursive
+      - name: Validate selected release tag
+        env:
+          RELEASE_TAG: ${{ inputs.release_tag }}
+        shell: bash
+        run: |
+          if ! git rev-parse --verify "refs/tags/${RELEASE_TAG}^{commit}" >/dev/null 2>&1; then
+            echo "ERROR: '${RELEASE_TAG}' is not an existing Git tag in this repository."
+            exit 1
+          fi
       - id: source
         name: Resolve selected release commit
         shell: bash
