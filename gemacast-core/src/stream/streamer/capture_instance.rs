@@ -694,7 +694,7 @@ mod tests {
         let target_addr = phone_socket.local_addr().unwrap();
 
         instance
-            .spawn_target_encoder(target_addr, Some(128000))
+            .spawn_target_encoder(target_addr, Some(128000), test_audio_key())
             .await
             .expect("Failed to spawn UDP encoder");
 
