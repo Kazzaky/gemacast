@@ -23,9 +23,6 @@ if [ -z "$SPEC_FILE" ]; then
   exit 1
 fi
 
-# Add AutoReqProv: no to prevent scraping x86_64 ADB dependencies on arm64
-sudo sed -i '/Summary:/a AutoReqProv: no' "$SPEC_FILE"
-
 # Build the RPM package from the modified spec file
 BUILD_DIR=$(dirname "$SPEC_FILE")
 RPMBUILD_OUT=$(sudo rpmbuild --define "_rpmdir $(pwd)" --buildroot "$(pwd)/$BUILD_DIR" --target "${APPIMAGE_ARCH}" -bb "$SPEC_FILE" 2>&1)
