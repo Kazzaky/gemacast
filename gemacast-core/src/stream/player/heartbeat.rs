@@ -1,3 +1,4 @@
+use crate::{audio::AudioSessionKey, stream::echo::EchoPacketCipher};
 use std::net::UdpSocket;
 use std::sync::Arc;
 use std::sync::atomic::{AtomicBool, AtomicU16, Ordering};
@@ -8,6 +9,7 @@ pub(crate) struct KeepaliveHeartbeat {
     streamer_audio_port: Arc<AtomicU16>,
     active: Arc<AtomicBool>,
     socket: UdpSocket,
+    echo_cipher: EchoPacketCipher,
 }
 
 impl KeepaliveHeartbeat {
@@ -16,12 +18,14 @@ impl KeepaliveHeartbeat {
         streamer_audio_port: Arc<AtomicU16>,
         active: Arc<AtomicBool>,
         socket: UdpSocket,
+        audio_key: AudioSessionKey,
     ) -> Self {
         Self {
             target,
             streamer_audio_port,
             active,
             socket,
+            echo_cipher: EchoPacketCipher::new(&audio_key),
         }
     }
 
@@ -42,9 +46,9 @@ impl KeepaliveHeartbeat {
             while self.active.load(Ordering::Relaxed) {
                 let port = self.streamer_audio_port.load(Ordering::Relaxed);
                 let target_addr = std::net::SocketAddr::new(self.target, port);
-                let _ = self
-                    .socket
-                    .send_to(&crate::stream::echo::EchoPacket::build(), target_addr);
+                if let Ok(packet) = self.echo_cipher.build() {
+                    let _ = self.socket.send_to(&packet, target_addr);
+                }
                 std::thread::sleep(std::time::Duration::from_millis(500));
             }
         })
