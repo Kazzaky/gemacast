@@ -14,7 +14,7 @@ const questions: Question[] = [
     id: 'discovery',
     question: 'The phone cannot find my PC',
     answer:
-      'Both devices must be on the same reachable network. Guest Wi-Fi, VPNs, and router client isolation can hide the PC. Confirm that Gemacast is running and that UDP 23555-23556 and TCP 23559 are allowed through the PC firewall. ADB mode does not use LAN discovery or firewall rules.',
+      'Both devices must be on the same reachable network. Guest Wi-Fi, VPNs, and router client isolation can hide the PC. Confirm that Gemacast is running and that UDP 23555-23556 and TCP 23559 are allowed through the PC firewall.',
   },
   {
     id: 'latency',
@@ -26,7 +26,7 @@ const questions: Question[] = [
     id: 'dtim',
     question: 'The buffer grows past 200 ms when the screen turns off',
     answer:
-      'Some Android devices change Wi-Fi scheduling when the screen turns off. If packets begin arriving in larger batches, the adaptive buffer grows in response. Keep Screen On avoids the screen-off state; USB tethering and ADB avoid the Wi-Fi path.',
+      'Some Android devices change Wi-Fi scheduling when the screen turns off. If packets begin arriving in larger batches, the adaptive buffer grows in response. Keep Screen On avoids the screen-off state; USB tethering avoids the Wi-Fi path.',
   },
   {
     id: 'pairing',
@@ -44,7 +44,7 @@ const questions: Question[] = [
     id: 'encryption',
     question: 'Is the audio encrypted?',
     answer:
-      'The control channel is encrypted and authenticated. UDP audio sent over Wi-Fi or USB tethering is not encrypted or authenticated; the protocol provides no confidentiality or integrity for those packets. ADB carries the stream through its loopback TCP forwarding path.',
+      'The control channel is encrypted and authenticated. UDP audio sent over Wi-Fi or USB tethering is not encrypted or authenticated; the protocol provides no confidentiality or integrity for those packets.',
   },
 ]
 
