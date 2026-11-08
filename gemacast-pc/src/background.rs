@@ -336,8 +336,6 @@ struct EngineReady {
     control_command_rx: mpsc::Receiver<ControlCommand>,
     audio_command_tx: mpsc::Sender<gemacast_core::stream::streamer::AudioStreamCommand>,
     audio_command_rx: mpsc::Receiver<gemacast_core::stream::streamer::AudioStreamCommand>,
-    adb_shutdown_tx: broadcast::Sender<()>,
-    adb_outbound_control_tx: broadcast::Sender<ControlMessage>,
     fatal_error_tx: mpsc::Sender<String>,
     fatal_error_rx: mpsc::Receiver<String>,
 
