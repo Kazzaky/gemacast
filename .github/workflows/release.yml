@@ -20,9 +20,12 @@ permissions:
 # This task will run whenever you push a git tag that looks like a version
 # like "1.0.0", "v0.1.0-prerelease.1", "my-app/0.1.0", "releases/v1.0.0", etc.
 on:
-  push:
-    tags:
-      - '**[0-9]+.[0-9]+.[0-9]+*'
+  workflow_dispatch:
+    inputs:
+      release_tag:
+        description: "Existing version tag to build and publish (for example v0.6.0)."
+        required: true
+        type: string
 
 # Initialize the placeholder here so IDE knows it exists
 # Value will filled later
@@ -42,16 +45,22 @@ jobs:
     runs-on: "ubuntu-24.04"
     outputs:
       val: ${{ steps.plan.outputs.manifest }}
-      tag: ${{ github.ref_name }}
+      tag: ${{ inputs.release_tag }}
       tag-flag: ${{ format('--tag={0}', github.ref_name) }}
+      commit: ${{ steps.source.outputs.sha }}
       publishing: "true"
     env:
       GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
     steps:
       - uses: actions/checkout@v7
         with:
+          ref: ${{ inputs.release_tag }}
           persist-credentials: false
           submodules: recursive
+      - id: source
+        name: Resolve selected release commit
+        shell: bash
+        run: echo "sha=$(git rev-parse HEAD)" >> "$GITHUB_OUTPUT"
       - name: Install dist
         shell: bash
         run: "curl --proto '=https' --tlsv1.2 -LsSf https://github.com/axodotdev/cargo-dist/releases/download/v0.32.0/cargo-dist-installer.sh | sh"
@@ -62,7 +71,7 @@ jobs:
           path: ~/.cargo/bin/dist
       - id: plan
         run: |
-          dist host --steps=create --tag=${{ github.ref_name }} --output-format=json > plan-dist-manifest.json
+          dist host --steps=create --tag=${{ inputs.release_tag }} --output-format=json > plan-dist-manifest.json
           echo "dist ran successfully"
           cat plan-dist-manifest.json
           echo "manifest=$(jq -c "." plan-dist-manifest.json)" >> "$GITHUB_OUTPUT"
@@ -94,6 +103,7 @@ jobs:
           git config --global core.longpaths true
       - uses: actions/checkout@v7
         with:
+          ref: ${{ inputs.release_tag }}
           persist-credentials: false
           submodules: recursive
       - name: Install Rust non-interactively if not already installed
@@ -167,6 +177,7 @@ jobs:
     steps:
       - uses: actions/checkout@v7
         with:
+          ref: ${{ inputs.release_tag }}
           persist-credentials: false
           submodules: recursive
       - name: Install cached dist
@@ -216,6 +227,7 @@ jobs:
     steps:
       - uses: actions/checkout@v7
         with:
+          ref: ${{ inputs.release_tag }}
           persist-credentials: false
           submodules: recursive
       - name: Install cached dist
@@ -267,7 +279,7 @@ jobs:
           PRERELEASE_FLAG: "${{ fromJson(steps.host.outputs.manifest).announcement_is_prerelease && '--prerelease' || '' }}"
           ANNOUNCEMENT_TITLE: "${{ fromJson(steps.host.outputs.manifest).announcement_title }}"
           ANNOUNCEMENT_BODY: "${{ fromJson(steps.host.outputs.manifest).announcement_github_body }}"
-          RELEASE_COMMIT: "${{ github.sha }}"
+          RELEASE_COMMIT: "${{ needs.plan.outputs.commit }}"
         run: |
           # Write and read notes from a file to avoid quoting breaking things
           echo "$ANNOUNCEMENT_BODY" > $RUNNER_TEMP/notes.txt
@@ -302,6 +314,7 @@ jobs:
     steps:
       - uses: actions/checkout@v7
         with:
+          ref: ${{ inputs.release_tag }}
           persist-credentials: false
           submodules: recursive
 
@@ -396,6 +409,7 @@ jobs:
     steps:
       - uses: actions/checkout@v7
         with:
+          ref: ${{ inputs.release_tag }}
           persist-credentials: false
           submodules: recursive
 
@@ -480,6 +494,7 @@ jobs:
     steps:
       - uses: actions/checkout@v7
         with:
+          ref: ${{ inputs.release_tag }}
           persist-credentials: false
           submodules: recursive
 
@@ -548,6 +563,7 @@ jobs:
     steps:
       - uses: actions/checkout@v7
         with:
+          ref: ${{ inputs.release_tag }}
           submodules: recursive
 
       - name: Setup Bun
@@ -695,6 +711,7 @@ jobs:
     steps:
       - uses: actions/checkout@v7
         with:
+          ref: ${{ inputs.release_tag }}
           persist-credentials: false
 
       - name: Download MSI from release
@@ -736,6 +753,7 @@ jobs:
     steps:
       - uses: actions/checkout@v7
         with:
+          ref: ${{ inputs.release_tag }}
           persist-credentials: false
 
       - name: Parse version and download packages
@@ -793,6 +811,7 @@ jobs:
     steps:
       - uses: actions/checkout@v7
         with:
+          ref: ${{ inputs.release_tag }}
           persist-credentials: false
 
       - name: Install gh CLI
@@ -826,6 +845,7 @@ jobs:
     steps:
       - uses: actions/checkout@v7
         with:
+          ref: ${{ inputs.release_tag }}
           persist-credentials: false
 
       - name: Parse version and download macOS installers
@@ -871,6 +891,7 @@ jobs:
     steps:
       - uses: actions/checkout@v7
         with:
+          ref: ${{ inputs.release_tag }}
           persist-credentials: false
 
       - name: Download APK from release
@@ -965,6 +986,7 @@ jobs:
     steps:
       - uses: actions/checkout@v7
         with:
+          ref: ${{ inputs.release_tag }}
           persist-credentials: false
 
       - name: Import GPG key
@@ -1039,6 +1061,7 @@ jobs:
     steps:
       - uses: actions/checkout@v7
         with:
+          ref: ${{ inputs.release_tag }}
           persist-credentials: false
 
       - name: Generate updater.json
@@ -1081,6 +1104,7 @@ jobs:
           permission-contents: write
       - uses: actions/checkout@v7
         with:
+          ref: ${{ inputs.release_tag }}
           persist-credentials: false
           submodules: recursive
 
@@ -1137,6 +1161,7 @@ jobs:
           permission-pull-requests: write
       - uses: actions/checkout@v7
         with:
+          ref: ${{ inputs.release_tag }}
           fetch-depth: 0
           token: ${{ steps.release-token.outputs.token }}
 
