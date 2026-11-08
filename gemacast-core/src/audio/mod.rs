@@ -1,6 +1,8 @@
 use opus::{Decoder, Encoder};
 
 pub mod mixdown;
+pub mod encryption;
+pub use encryption::AudioSessionKey;
 pub(crate) mod pcm_datagram;
 pub mod resampler;
 pub use resampler::CaptureResampler;
