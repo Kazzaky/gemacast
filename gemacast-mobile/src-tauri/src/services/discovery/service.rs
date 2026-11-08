@@ -509,7 +509,7 @@ mod tests {
     #[test]
     fn detect_phone_link_wifi_5ghz_frequency() {
         let network = MockNetworkInfoProvider::new();
-        let platform = MockPlatformService::new().with_transport_type("WIFI:5180|ADB_OFF");
+        let platform = MockPlatformService::new().with_transport_type("WIFI:5180");
 
         let link = detect_phone_link(&network, &platform, "wifi");
         assert_eq!(link, NetworkLink::Wifi5Ghz);
