@@ -789,14 +789,14 @@ mod tests {
 
         // 1. Subscribe to desktop
         let _tx = pool
-            .subscribe(AudioSource::Desktop, target.clone(), Some(128000))
+            .subscribe(AudioSource::Desktop, target.clone(), Some(128000), test_audio_key())
             .await
             .expect("Subscribe failed");
         assert_eq!(pool.instances.len(), 1);
 
         // 2. Subscribe again (should reuse the instance)
         let _tx2 = pool
-            .subscribe(AudioSource::Desktop, target.clone(), Some(128000))
+            .subscribe(AudioSource::Desktop, target.clone(), Some(128000), test_audio_key())
             .await
             .expect("Subscribe failed");
         assert_eq!(pool.instances.len(), 1);
@@ -815,7 +815,7 @@ mod tests {
         let target = TargetId::Tcp(DeviceId("dev1".into()));
 
         // Subscribe to desktop
-        pool.subscribe(AudioSource::Desktop, target.clone(), Some(128000))
+        pool.subscribe(AudioSource::Desktop, target.clone(), Some(128000), test_audio_key())
             .await
             .expect("Subscribe failed");
         assert_eq!(pool.instances.len(), 1);
@@ -830,6 +830,7 @@ mod tests {
             new_source.clone(),
             target,
             Some(128000),
+            test_audio_key(),
         )
         .await
         .expect("Change source failed");
@@ -846,10 +847,10 @@ mod tests {
         let target1 = TargetId::Tcp(DeviceId("dev1".into()));
         let target2 = TargetId::Tcp(DeviceId("dev2".into()));
 
-        pool.subscribe(AudioSource::Desktop, target1.clone(), Some(128000))
+        pool.subscribe(AudioSource::Desktop, target1.clone(), Some(128000), test_audio_key())
             .await
             .expect("Subscribe 1 failed");
-        pool.subscribe(AudioSource::Desktop, target2.clone(), Some(256000))
+        pool.subscribe(AudioSource::Desktop, target2.clone(), Some(256000), test_audio_key())
             .await
             .expect("Subscribe 2 failed");
 
@@ -880,12 +881,12 @@ mod tests {
         let target = TargetId::Tcp(device_id.clone());
 
         let original = pool
-            .subscribe(AudioSource::Desktop, target.clone(), Some(128000))
+            .subscribe(AudioSource::Desktop, target.clone(), Some(128000), test_audio_key())
             .await
             .unwrap()
             .unwrap();
         let replacement = pool
-            .change_bitrate(&AudioSource::Desktop, target.clone(), Some(256000))
+            .change_bitrate(&AudioSource::Desktop, target.clone(), Some(256000), test_audio_key())
             .await
             .unwrap()
             .unwrap();
@@ -908,7 +909,7 @@ mod tests {
     async fn stale_capture_failure_should_not_evict_a_recreated_source() {
         let mut pool = CapturePool::new(MockCaptureFactory, true);
         let first_target = TargetId::Tcp(DeviceId("dev1".into()));
-        pool.subscribe(AudioSource::Desktop, first_target.clone(), Some(128000))
+        pool.subscribe(AudioSource::Desktop, first_target.clone(), Some(128000), test_audio_key())
             .await
             .unwrap();
         let first_generation = pool
@@ -921,7 +922,7 @@ mod tests {
             .unwrap();
 
         let second_target = TargetId::Tcp(DeviceId("dev2".into()));
-        pool.subscribe(AudioSource::Desktop, second_target.clone(), Some(128000))
+        pool.subscribe(AudioSource::Desktop, second_target.clone(), Some(128000), test_audio_key())
             .await
             .unwrap();
         let second_generation = pool
@@ -951,10 +952,10 @@ mod tests {
         let target1 = TargetId::Udp("127.0.0.1:1111".parse().unwrap());
         let target2 = TargetId::Udp("127.0.0.1:2222".parse().unwrap());
 
-        pool.subscribe(AudioSource::Desktop, target1.clone(), Some(128000))
+        pool.subscribe(AudioSource::Desktop, target1.clone(), Some(128000), test_audio_key())
             .await
             .expect("Subscribe 1 failed");
-        pool.subscribe(AudioSource::Desktop, target2.clone(), Some(256000))
+        pool.subscribe(AudioSource::Desktop, target2.clone(), Some(256000), test_audio_key())
             .await
             .expect("Subscribe 2 failed");
 
