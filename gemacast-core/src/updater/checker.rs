@@ -5,8 +5,9 @@ use super::manifest::ReleaseManifest;
 use super::retry::RetryPolicy;
 use crate::domain::error::UpdaterError;
 
+/// Latest release manifest published by the personal Gemacast fork.
 pub const UPDATER_URL: &str =
-    "https://github.com/apirJS/gemacast/releases/latest/download/updater.json";
+    "https://github.com/Kazzaky/gemacast/releases/latest/download/updater.json";
 
 pub struct UpdateChecker {
     manifest_url: String,
@@ -75,5 +76,18 @@ impl UpdateChecker {
             .text()
             .await
             .map_err(UpdaterError::ManifestBodyReadFailed)
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::UPDATER_URL;
+
+    #[test]
+    fn updater_manifest_comes_from_personal_fork() {
+        assert_eq!(
+            UPDATER_URL,
+            "https://github.com/Kazzaky/gemacast/releases/latest/download/updater.json"
+        );
     }
 }
