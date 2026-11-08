@@ -158,18 +158,6 @@ class MainActivity : TauriActivity() {
                     }
 
             val intentFilter = android.content.IntentFilter("android.hardware.usb.action.USB_STATE")
-            val usbIntent = registerReceiver(null, intentFilter)
-            val usbConnected = usbIntent?.extras?.getBoolean("connected") ?: false
-
-            val adbActive =
-                    android.provider.Settings.Global.getInt(
-                            contentResolver,
-                            android.provider.Settings.Global.ADB_ENABLED,
-                            0
-                    ) != 0
-
-            val adbStatus = if (usbConnected && adbActive) "ADB_ON" else "ADB_OFF"
-
             val tetherStatus =
                     when (tether) {
                         TetherClassifier.Tether.HOTSPOT -> "|HOTSPOT"
@@ -177,7 +165,7 @@ class MainActivity : TauriActivity() {
                         TetherClassifier.Tether.NONE -> ""
                     }
 
-            "${networkType}|${adbStatus}${tetherStatus}"
+            "${networkType}${tetherStatus}"
         } catch (e: Exception) {
             "ERROR: ${e.message}"
         }
