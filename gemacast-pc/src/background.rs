@@ -3,7 +3,7 @@ use std::sync::atomic::AtomicBool;
 use std::sync::{Arc, Mutex};
 
 use tao::event_loop::EventLoopProxy;
-use tokio::sync::{broadcast, mpsc};
+use tokio::sync::mpsc;
 use tokio::task::JoinSet;
 
 use gemacast_core::adapters::capture::DefaultCaptureFactory;
@@ -13,10 +13,6 @@ use gemacast_core::adapters::process_lister::DefaultProcessLister;
 use gemacast_core::control::messages::ControlMessage;
 use gemacast_core::control::{ControlCommand, ControlServerState, SessionAuthorizer};
 use gemacast_core::domain::types::DeviceId;
-use gemacast_core::network::adb::{
-    PresenceProvider, adb_command, kill_adb_server, spawn_adb_audio_tcp_server,
-    spawn_adb_discovery_tcp_server, spawn_adb_port_forwarding_watchdog,
-};
 use gemacast_core::stream::streamer::{AudioStreamEngine, StreamSessionFailure};
 
 use crate::adapters::device::WsConnectionMap;
@@ -31,27 +27,6 @@ use crate::tasks::{
 };
 use crate::traits::DeviceRegistry;
 use crate::trusted_devices::TrustedDeviceStore;
-
-struct PcPresenceProvider {
-    is_broadcasting: Arc<AtomicBool>,
-    streamer_id: DeviceId,
-    streamer_name: String,
-}
-
-impl PresenceProvider for PcPresenceProvider {
-    fn is_broadcasting(&self) -> bool {
-        self.is_broadcasting
-            .load(std::sync::atomic::Ordering::Relaxed)
-    }
-
-    fn streamer_id(&self) -> DeviceId {
-        self.streamer_id.clone()
-    }
-
-    fn streamer_name(&self) -> String {
-        self.streamer_name.clone()
-    }
-}
 
 pub fn spawn_background_engine(
     event_loop_proxy: EventLoopProxy<TrayEvent>,
@@ -134,8 +109,6 @@ impl BackgroundEngine {
         let (control_command_tx, control_command_rx) = mpsc::channel::<ControlCommand>(32);
         let (audio_command_tx, audio_command_rx) =
             mpsc::channel::<gemacast_core::stream::streamer::AudioStreamCommand>(32);
-        let (adb_shutdown_tx, _) = broadcast::channel::<()>(16);
-        let (adb_outbound_control_tx, _) = broadcast::channel::<ControlMessage>(16);
         let (fatal_error_tx, fatal_error_rx) = mpsc::channel::<String>(8);
 
         EngineWithChannels {
@@ -154,8 +127,6 @@ impl BackgroundEngine {
             control_command_rx,
             audio_command_tx,
             audio_command_rx,
-            adb_shutdown_tx,
-            adb_outbound_control_tx,
             fatal_error_tx,
             fatal_error_rx,
         }
@@ -179,8 +150,6 @@ struct EngineWithChannels {
     control_command_rx: mpsc::Receiver<ControlCommand>,
     audio_command_tx: mpsc::Sender<gemacast_core::stream::streamer::AudioStreamCommand>,
     audio_command_rx: mpsc::Receiver<gemacast_core::stream::streamer::AudioStreamCommand>,
-    adb_shutdown_tx: broadcast::Sender<()>,
-    adb_outbound_control_tx: broadcast::Sender<ControlMessage>,
     fatal_error_tx: mpsc::Sender<String>,
     fatal_error_rx: mpsc::Receiver<String>,
 }
@@ -194,8 +163,6 @@ impl EngineWithChannels {
         let notifier: Arc<dyn crate::traits::DeviceNotifier> =
             Arc::new(MultiTransportDeviceNotifier::new(
                 self.ws_connections.clone(),
-                self.adb_outbound_control_tx.clone(),
-                self.adb_shutdown_tx.clone(),
             ));
 
         EngineWithAdapters {
@@ -214,8 +181,6 @@ impl EngineWithChannels {
             control_command_rx: self.control_command_rx,
             audio_command_tx: self.audio_command_tx,
             audio_command_rx: self.audio_command_rx,
-            adb_shutdown_tx: self.adb_shutdown_tx,
-            adb_outbound_control_tx: self.adb_outbound_control_tx,
             fatal_error_tx: self.fatal_error_tx,
             fatal_error_rx: self.fatal_error_rx,
             tray,
@@ -254,13 +219,6 @@ struct EngineWithAdapters {
 
 impl EngineWithAdapters {
     async fn init_infrastructure(self) -> Option<EngineReady> {
-        if adb_command().arg("version").output().await.is_err() {
-            let msg = "Failed to launch bundled ADB! Please ensure the application was installed correctly.";
-            tracing::error!("{}", msg);
-            self.tray.notify_fatal_error(msg.to_string());
-            return None;
-        }
-
         let device_name = whoami::devicename().unwrap_or_else(|_| "Desktop PC".to_string());
         let pc_identity = match crate::pc_identity::PcIdentity::load_default() {
             Ok(identity) => identity,
@@ -334,12 +292,6 @@ impl EngineWithAdapters {
             }
         };
 
-        let presence_provider = Arc::new(PcPresenceProvider {
-            is_broadcasting: self.is_broadcasting.clone(),
-            streamer_id: streamer_id.clone(),
-            streamer_name: device_name.clone(),
-        });
-
         Some(EngineReady {
             registry: self.registry,
             is_broadcasting: self.is_broadcasting,
@@ -364,7 +316,6 @@ impl EngineWithAdapters {
             listener,
             control_state,
             _mdns_broadcaster,
-            presence_provider,
             streamer_id,
             device_name,
             pc_certificate_fingerprint,
@@ -402,7 +353,6 @@ struct EngineReady {
     control_state: ControlServerState<DefaultProcessLister>,
     #[allow(dead_code)]
     _mdns_broadcaster: Option<gemacast_core::discovery::MdnsBroadcaster>,
-    presence_provider: Arc<PcPresenceProvider>,
     streamer_id: DeviceId,
     device_name: String,
     pc_certificate_fingerprint: String,
@@ -485,25 +435,6 @@ impl EngineReady {
             }
         });
 
-        spawn_adb_audio_tcp_server(
-            &mut set,
-            self.audio_command_tx.clone(),
-            self.adb_shutdown_tx.clone(),
-            self.fatal_error_tx.clone(),
-            self.authorizer.clone(),
-        );
-
-        spawn_adb_discovery_tcp_server(
-            &mut set,
-            self.presence_provider,
-            self.inbound_control_tx.clone(),
-            self.adb_shutdown_tx.clone(),
-            self.adb_outbound_control_tx.clone(),
-            self.fatal_error_tx.clone(),
-        );
-
-        spawn_adb_port_forwarding_watchdog(&mut set, self.adb_shutdown_tx.clone());
-
         device_watchdog::spawn_device_watchdog(
             &mut set,
             self.registry.clone(),
@@ -581,7 +512,6 @@ impl EngineReady {
         }
 
         let _ = control_shutdown_tx.send(());
-        let _ = self.adb_shutdown_tx.send(());
 
         let graceful_drain = async {
             while let Some(result) = set.join_next().await {
@@ -599,8 +529,6 @@ impl EngineReady {
             set.abort_all();
             while set.join_next().await.is_some() {}
         }
-
-        kill_adb_server().await;
 
         self.tray.notify_shutdown_complete();
 
