@@ -10,15 +10,7 @@ FPR="${SIGNING_KEY_FINGERPRINT:?SIGNING_KEY_FINGERPRINT is required}"
 VERSION="${TAG#v}"
 BASE_URL="https://github.com/${REPO}/releases/download/${TAG}"
 
-# Extract the changelog for the current version from the manually maintained
-# CHANGELOG.md at the repo root.
-#
-# This path is load-bearing and was wrong until v0.3.0: it pointed at
-# gemacast-pc/CHANGELOG.md, a leftover from the release-plz era that stopped being
-# written at 0.1.0. release-please is configured with a single "." package
-# (release-please-config.json), so the only changelog it maintains is this one. The
-# awk found no matching heading in the stale file, the extraction came back empty,
-# and every release since shipped with an empty "### Changelog" section.
+# Extract the selected version's entry from the manually maintained root changelog.
 CHANGELOG_PATH="CHANGELOG.md"
 : > current_changelog.md
 if [ -f "$CHANGELOG_PATH" ]; then
