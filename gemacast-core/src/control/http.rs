@@ -307,15 +307,53 @@ mod tests {
     }
 
     #[tokio::test]
-    async fn probe_endpoint_should_return_presence() {
-        let (base_url, mut command_rx, _) = spawn_test_server().await;
-        let client = reqwest::Client::new();
-        let req_body = ProbeReq { device_id: None };
+    async fn unauthenticated_probe_should_return_only_public_presence() {
+        let (base_url, _command_rx, _) = spawn_test_server().await;
+        let response = reqwest::Client::new()
+            .post(format!("{base_url}/probe"))
+            .json(&ProbeReq { device_id: None })
+            .send()
+            .await
+            .unwrap();
 
+        assert!(response.status().is_success());
+        let body: PresenceResponse = response.json().await.unwrap();
+        assert_eq!(body.device_id.0, "test-streamer");
+        assert!(!body.is_offline);
+        assert_eq!(body.device_registered, None);
+        assert_eq!(body.pc_output_volume, None);
+    }
+
+    #[tokio::test]
+    async fn unauthenticated_device_probe_should_not_reveal_session_state() {
+        let (base_url, _command_rx, _) = spawn_test_server().await;
+        let response = reqwest::Client::new()
+            .post(format!("{base_url}/probe"))
+            .json(&ProbeReq {
+                device_id: Some(DeviceId("phone-1".into())),
+            })
+            .send()
+            .await
+            .unwrap();
+
+        assert!(response.status().is_success());
+        let body: PresenceResponse = response.json().await.unwrap();
+        assert_eq!(body.device_registered, None);
+        assert_eq!(body.pc_output_volume, None);
+    }
+
+    #[tokio::test]
+    async fn authenticated_device_probe_should_return_session_state() {
+        let (base_url, mut command_rx, authorizer) = spawn_test_server().await;
+        let device_id = DeviceId("phone-1".into());
+        let (token, _) = authorizer.issue(device_id.clone()).unwrap();
         let request_task = tokio::spawn(async move {
-            client
+            reqwest::Client::new()
                 .post(format!("{base_url}/probe"))
-                .json(&req_body)
+                .bearer_auth(token)
+                .json(&ProbeReq {
+                    device_id: Some(device_id.clone()),
+                })
                 .send()
                 .await
                 .unwrap()
@@ -323,19 +361,18 @@ mod tests {
 
         match command_rx.recv().await.unwrap() {
             ControlCommand::Probe {
-                device_id,
+                device_id: Some(device_id),
                 response_tx,
             } => {
-                assert!(device_id.is_none());
+                assert_eq!(device_id.0, "phone-1");
                 let _ = response_tx.send(presence(DeviceId("test-streamer".into()), None));
             }
-            _ => panic!("Expected ControlCommand::Probe"),
+            _ => panic!("Expected authenticated device probe"),
         }
 
         let response = request_task.await.unwrap();
         assert!(response.status().is_success());
         let body: PresenceResponse = response.json().await.unwrap();
-        assert_eq!(body.device_id.0, "test-streamer");
-        assert!(!body.is_offline);
+        assert_eq!(body.device_registered, Some(true));
     }
 }
