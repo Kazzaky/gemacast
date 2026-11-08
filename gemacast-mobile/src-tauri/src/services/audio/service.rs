@@ -1069,7 +1069,7 @@ mod tests {
         let service = make_service(session.clone(), client.clone(), platform.clone());
 
         *service.cached_link_pair.lock().unwrap() = Some(LinkPair {
-            phone: NetworkLink::Adb,
+            phone: NetworkLink::UsbTether,
             pc: NetworkLink::Ethernet,
         });
 
