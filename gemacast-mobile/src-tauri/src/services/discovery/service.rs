@@ -409,7 +409,7 @@ mod tests {
     // ---------------------------------------------------------------
 
     #[test]
-    fn parse_tether_state_reads_the_third_field() {
+    fn parse_tether_state_reads_the_second_field() {
         assert_eq!(
             TetherState::from_transport("NONE|HOTSPOT"),
             TetherState::Hotspot
