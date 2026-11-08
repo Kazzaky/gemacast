@@ -77,7 +77,7 @@ fn get_network_identifier(network: &dyn NetworkInfoProvider) -> Result<String, S
     Ok(format!("{}_{}_{}", iface.name, mac, ip))
 }
 
-/// Tethering state reported by the Android layer, third field of the transport
+/// Tethering state reported by the Android layer, second field of the transport
 /// string (`"<transports>|<tether>"`).
 ///
 /// Present because a tethering phone's *active* network is its upstream — often
