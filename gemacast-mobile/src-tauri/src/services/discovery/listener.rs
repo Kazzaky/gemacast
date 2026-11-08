@@ -41,9 +41,6 @@ impl DiscoveryListener {
             let streamer_heartbeat_tracker = ctx.streamer_last_seen.clone();
             let notifier_for_watchdog = notifier.clone();
             set.spawn(async move {
-                if mode == ConnectionMode::Adb {
-                    return;
-                }
                 let mut interval = tokio::time::interval(tokio::time::Duration::from_secs(
                     HEARTBEAT_CHECK_INTERVAL_SECS,
                 ));
@@ -64,12 +61,6 @@ impl DiscoveryListener {
                 is_streaming,
             ));
 
-            set.spawn(super::adb_session::AdbSession::run(
-                ctx.clone(),
-                device_id,
-                mode,
-                notifier.clone(),
-            ));
 
             while let Some((message, addr)) = presence_message_rx.recv().await {
                 ctx.dispatch(message, addr, mode);
