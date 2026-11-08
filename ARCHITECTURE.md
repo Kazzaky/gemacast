@@ -9,7 +9,7 @@ The mobile interface uses React; the download website uses Vue.
 flowchart LR
     Capture[OS capture] --> Frames[48 kHz stereo frames]
     Frames --> Encoder[Per-phone encoder]
-    Encoder --> Transport[UDP or ADB TCP]
+    Encoder --> Transport[UDP]
     Transport --> Receiver[Packet reception and reassembly]
     Receiver --> Jitter[Jitter buffer and decoder]
     Jitter --> Output[Native audio output]
@@ -68,8 +68,7 @@ playback consumption. Phones have independent playback clocks and buffers.
 
 ## Connection lifecycle
 
-1. LAN discovery uses UDP presence/probes and mDNS. ADB discovery uses a
-   forwarded TCP connection.
+1. Discovery uses UDP presence/probes and mDNS over Wi-Fi or USB tethering.
 2. The phone authenticates through HTTPS using a P-256 challenge bound to the
    PC certificate. Initial pairing requires comparison-code confirmation.
 3. The PC creates the source subscription, commits the session, and returns its
@@ -94,18 +93,11 @@ Ports are defined in [network/ports.rs](gemacast-core/src/network/ports.rs).
 | LAN discovery | UDP 23555 | Presence and probe messages |
 | Control | PC TCP 23559 | HTTPS requests and WSS events |
 | LAN audio | Phone UDP 23556 | Audio datagrams; PC source port is ephemeral |
-| ADB audio | PC loopback TCP 23557 | Authenticated handshake, then length-prefixed audio |
-| ADB discovery | PC loopback TCP 23558 | Newline-delimited control JSON |
 
-USB tethering uses the LAN protocol. The
-[ADB watchdog](gemacast-core/src/network/adb/reverse.rs) forwards TCP 23557,
-23558, and 23559. The phone connects through loopback to the forwarded ports.
-ADB audio authenticates device ID, session token, and generation using the
-[audio handshake](gemacast-core/src/stream/player/handshake.rs).
+Wi-Fi and USB tethering both use the same UDP audio and discovery protocol.
 
-Control uses TLS. LAN audio has no encryption or authentication; sequence and
+Control uses TLS. UDP audio has no encryption or authentication; sequence and
 generation fields identify ordering and sender replacement, not packet integrity.
-ADB audio uses forwarded TCP without application-layer encryption.
 
 ## Audio wire format
 
@@ -141,12 +133,6 @@ Implementation: [chunk format](gemacast-core/src/audio/pcm_datagram.rs),
 [UDP sender](gemacast-core/src/stream/streamer/udp_audio_sender.rs),
 [send-age limit](gemacast-core/src/stream/streamer/captured_frame.rs),
 [reassembly](gemacast-core/src/stream/player/pcm_assembly.rs).
-
-### ADB TCP
-
-[TcpAudioFramer](gemacast-core/src/network/adb/framer.rs) prefixes each base
-packet with its byte length as a four-byte big-endian integer. PCM remains a
-complete frame; the UDP chunk layout is not used.
 
 ## Execution boundaries
 
