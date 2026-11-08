@@ -162,7 +162,6 @@ pub mod mocks {
         StartSession {
             mode: ConnectionMode,
             exclusive_mode: bool,
-            is_tcp: bool,
         },
         StopSession,
         SetPlaying {
@@ -220,7 +219,6 @@ pub mod mocks {
             self.calls.lock().unwrap().push(SessionCall::StartSession {
                 mode: params.mode,
                 exclusive_mode: params.exclusive_mode,
-                is_tcp: params.is_tcp,
             });
             self.start_result.lock().unwrap().clone()
         }
