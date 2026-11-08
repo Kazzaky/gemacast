@@ -149,6 +149,7 @@ impl AudioStreamPlayer {
                     streamer_port.clone(),
                     heartbeat_active.clone(),
                     hb_socket,
+                    audio_key.clone(),
                 )
                 .spawn(),
             ),
