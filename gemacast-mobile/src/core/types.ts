@@ -62,7 +62,6 @@ export type Metrics = {
 export enum ConnectionMode {
   Wifi = 'wifi',
   Usb = 'usb',
-  Adb = 'adb',
 }
 
 export type JitterConfig = {
@@ -74,7 +73,7 @@ export type JitterConfig = {
 };
 
 export type NetworkLink =
-  'adb' | 'usbTether' | 'wifi5Ghz' | 'wifi2_4Ghz' | 'ethernet' | 'wifiUnknown' | 'unknown';
+  'usbTether' | 'wifi5Ghz' | 'wifi2_4Ghz' | 'ethernet' | 'wifiUnknown' | 'unknown';
 
 export type NetworkLinkPairInfo = {
   phone: NetworkLink;
@@ -139,7 +138,7 @@ export type AppState = {
   reconnectAttempts: number;
   metrics: Metrics;
   settings: AppSettings;
-  availableModes: { wifi: boolean; usb: boolean; adb: boolean };
+  availableModes: { wifi: boolean; usb: boolean };
   audioSources: AudioSource[];
   currentAudioSource: AudioSource;
   streamerCapabilities: StreamerCapabilities | null;
