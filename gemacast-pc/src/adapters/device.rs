@@ -13,12 +13,10 @@ use crate::traits::DeviceNotifier;
 /// WebSocket connection map type alias for readability.
 pub type WsConnectionMap = Arc<Mutex<HashMap<DeviceId, mpsc::Sender<WsEvent>>>>;
 
-/// Notifies devices to disconnect using the best available transport.
+/// Notifies devices to disconnect through the authenticated control channel.
 ///
 /// Uses the authenticated WSS control channel.
 ///
-/// Remote phones have no inbound control listener. If WSS is unavailable,
-/// their authenticated probe/audio liveness will converge on the disconnect.
 pub struct MultiTransportDeviceNotifier {
     ws_connections: WsConnectionMap,
 }
