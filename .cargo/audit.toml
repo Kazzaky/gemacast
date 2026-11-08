@@ -8,8 +8,9 @@
 # instead of re-deriving it. Re-audit an entry whenever its upstream moves.
 #
 # Do NOT add an entry here to quiet a fixable advisory. h2 (RUSTSEC-2026-0258)
-# was fixed by `cargo update -p h2` and event-listener (RUSTSEC-2026-0221) by
-# `cargo update -p event-listener`; that is the expected remediation path.
+# was fixed by `cargo update -p h2`, event-listener (RUSTSEC-2026-0221) by
+# `cargo update -p event-listener`, and quick-xml by upgrading wayland-scanner
+# to 0.31.11. That is the expected remediation path.
 
 [advisories]
 ignore = [
@@ -27,20 +28,6 @@ ignore = [
   #   3. nix 0.19 is unix-only, so it cannot compile on the Windows build.
   "RUSTSEC-2021-0119",
 
-  # ------------------------------------------------------------------------
-  # quick-xml 0.39.4 — two 7.5-high denial-of-service advisories:
-  #   RUSTSEC-2026-0194 quadratic run time on duplicate start-tag attributes
-  #   RUSTSEC-2026-0195 unbounded namespace allocation in NsReader
-  # Pinned by `wayland-scanner 0.31.10` at `quick-xml = "^0.39"`, reached via
-  # wayland-client -> rfd -> gemacast-pc, i.e. Linux only.
-  # wayland-scanner is a **proc-macro**: it parses the Wayland protocol XML
-  # vendored inside wayland-protocols at build time and emits Rust. So the
-  # input is fixed and trusted, and proc-macro code is not linked into the
-  # shipped binary — neither advisory has a runtime surface here. The XML
-  # parser that *does* run at runtime is quick-xml 0.41.0 (via plist -> tauri
-  # and netdev), already past the fixed version.
-  "RUSTSEC-2026-0194",
-  "RUSTSEC-2026-0195",
   "RUSTSEC-2020-0168",
   "RUSTSEC-2024-0436",
   "RUSTSEC-2024-0370",
