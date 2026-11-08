@@ -167,7 +167,6 @@ impl CommandHandler {
 
     async fn handle_stop_all_streams(&self, broadcaster: &mut BroadcasterState) {
         tracing::info!("Executing StopAllStreams command");
-        self.notifier.signal_adb_shutdown();
 
         if let Some(tx) = broadcaster.shutdown_tx.take() {
             let _ = tx.send(());
@@ -477,25 +476,6 @@ mod tests {
             .count();
         assert_eq!(disconnects, 2);
 
-        // ADB shutdown was signaled
-        // (signaled before drain, so we check the NotifierCall list above includes AdbShutdown...
-        //  actually signal_adb_shutdown is called separately)
     }
 
-    #[tokio::test]
-    async fn stop_all_streams_should_signal_adb_shutdown() {
-        let registry = Arc::new(MockDeviceRegistry::new());
-        let tray = Arc::new(MockTrayNotifier::new());
-        let audio = Arc::new(MockAudioController::new());
-        let notifier = Arc::new(MockDeviceNotifier::new());
-        let handler = make_handler(registry, tray, audio, notifier.clone());
-
-        let mut broadcaster = BroadcasterState::default();
-        handler
-            .handle(AppCommand::StopAllStreams, &mut broadcaster)
-            .await;
-
-        let calls = notifier.take_calls();
-        assert!(calls.iter().any(|c| matches!(c, NotifierCall::AdbShutdown)));
-    }
 }
