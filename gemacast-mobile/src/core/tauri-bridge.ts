@@ -84,7 +84,7 @@ export const tauriBridge = {
     invoke<{
       localIp: string;
       networkId: string;
-      modes: { wifi: boolean; usb: boolean; adb: boolean };
+      modes: { wifi: boolean; usb: boolean };
     }>('get_network_state'),
 
   forgetPcIdentity: (pcId: string) => invoke('forget_pc_identity', { pcId }),
@@ -96,7 +96,7 @@ export const tauriBridge = {
   getNetworkIdentifier: () => invoke<string>('get_network_identifier'),
 
   getConnectionStatus: () =>
-    invoke<{ wifi: boolean; usb: boolean; adb: boolean }>('get_connection_status'),
+    invoke<{ wifi: boolean; usb: boolean }>('get_connection_status'),
 
   getAudioSources: (args: { ip: string }) =>
     invoke<[AudioSource[], StreamerCapabilities]>('get_audio_sources', args),
