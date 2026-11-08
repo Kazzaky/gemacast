@@ -7,7 +7,7 @@ use super::captured_frame::CapturedFrame;
 use super::encode::AudioFrameEncoder;
 use super::failure::StreamTaskFailure;
 use super::udp_audio_sender::UdpAudioSender;
-use crate::audio::{MAX_OPUS_PACKET_SIZE, OPUS_FRAME_SAMPLES, SEQ_NUM_SIZE};
+use crate::audio::{AudioSessionKey, MAX_OPUS_PACKET_SIZE, OPUS_FRAME_SAMPLES, SEQ_NUM_SIZE};
 use crate::domain::error::{AudioError, GemaCastError};
 use crate::domain::types::{AudioBitrate, AudioSource};
 use crate::ports::capture::{CaptureBackend, CaptureCounters, CaptureHandle};
@@ -16,6 +16,7 @@ use crate::ports::capture::{CaptureBackend, CaptureCounters, CaptureHandle};
 /// at its requested bitrate, running in a dedicated tokio task.
 pub(crate) struct PerTargetEncoder {
     pub(crate) bitrate: AudioBitrate,
+    pub(crate) audio_key: AudioSessionKey,
     pub(crate) generation: u64,
     pub(crate) shutdown_tx: oneshot::Sender<()>,
     pub(crate) join_handle: tokio::task::JoinHandle<()>,
@@ -93,12 +94,13 @@ impl AudioCaptureInstance {
         &mut self,
         target_addr: SocketAddr,
         bitrate: Option<i32>,
+        audio_key: AudioSessionKey,
     ) -> Result<(), GemaCastError> {
         let bitrate = AudioBitrate::from_wire(bitrate)?;
         if self
             .per_target_encoders
             .get(&target_addr)
-            .is_some_and(|encoder| encoder.bitrate == bitrate)
+            .is_some_and(|encoder| encoder.bitrate == bitrate && encoder.audio_key == audio_key)
         {
             return Ok(());
         }
@@ -116,7 +118,7 @@ impl AudioCaptureInstance {
 
         let join_handle = tokio::spawn(async move {
             if let Err(error) =
-                UdpAudioSender::run(pcm_rx, target_addr, encoder, bitrate, shutdown_rx).await
+                UdpAudioSender::run(pcm_rx, target_addr, encoder, bitrate, shutdown_rx, audio_key).await
             {
                 tracing::error!("[PerTargetEncoder] {:?} failed: {}", target_addr, error);
                 let _ = failure_tx.send(StreamTaskFailure::UdpEncoder {
@@ -133,6 +135,7 @@ impl AudioCaptureInstance {
             target_addr,
             PerTargetEncoder {
                 bitrate,
+                audio_key,
                 generation: encoder_generation,
                 shutdown_tx,
                 join_handle,
