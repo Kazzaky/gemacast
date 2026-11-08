@@ -7,7 +7,7 @@ use crate::{
         error::{GemaCastError, NetworkError},
         types::AudioBitrate,
     },
-    stream::echo::EchoPacket,
+    stream::echo::{EchoPacketCipher, EchoReplayWindow},
 };
 use socket2::{Domain, Protocol, Socket, Type};
 use std::{
@@ -181,6 +181,8 @@ impl UdpAudioSender {
         audio_key: AudioSessionKey,
     ) -> Result<(), GemaCastError> {
         let cipher = AudioPacketCipher::new(&audio_key);
+        let echo_cipher = EchoPacketCipher::new(&audio_key);
+        let mut echo_replay = EchoReplayWindow::default();
         let sender = &mut self;
         let target = sender.target;
         tracing::info!(%target, ?bitrate, pcm_datagram_bytes = PcmDatagram::SIZE, "[AudioSend] Session started");
@@ -205,7 +207,12 @@ impl UdpAudioSender {
                 result = sender.socket.recv_from(&mut inbound) => {
                     match result {
                         Ok((len, source)) => {
-                            if source == target && EchoPacket::matches(&inbound, len) {
+                            if source == target
+                                && EchoPacketCipher::matches(&inbound, len)
+                                && let Ok((sequence, _)) = echo_cipher.open(&inbound[..len])
+                                && echo_replay.accept(sequence)
+                            {
+                                // Reflect only authenticated, fresh pings from the paired phone.
                                 let _ = sender.socket.try_send_to(&inbound[..len], source);
                             }
                         }
@@ -325,7 +332,7 @@ mod tests {
         let (stop, shutdown) = oneshot::channel();
         let task = tokio::spawn(sender.run_session(rx, None, AudioBitrate::Uncompressed, shutdown, test_audio_key()));
         let exchange = async {
-            let ping = EchoPacket::build();
+            let ping = EchoPacketCipher::new(&test_audio_key()).build().unwrap();
             phone.send_to(&ping, server).await.unwrap();
             let mut buffer = [0; 8192];
             let (len, _) = phone.recv_from(&mut buffer).await.unwrap();
