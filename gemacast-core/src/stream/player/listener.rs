@@ -136,6 +136,7 @@ impl AudioStreamPlayer {
         latency_tx: Option<mpsc::Sender<(f32, f32, f32)>>,
         rtt_tx: Option<mpsc::Sender<f32>>,
         target_ip: Option<std::net::IpAddr>,
+        audio_key: AudioSessionKey,
     ) -> Result<(), GemaCastError> {
         let (transport, heartbeat_socket) = super::transport::AudioTransportFactory::create(target_ip)?;
         let heartbeat_active = Arc::new(AtomicBool::new(true));
@@ -179,6 +180,7 @@ impl AudioStreamPlayer {
             target_ip,
             self.playback_control.clone(),
             cfg!(target_os = "android").then_some(SOURCE_IDLE_SUSPEND_AFTER),
+            audio_key,
         );
 
         struct ScopeGuard {
