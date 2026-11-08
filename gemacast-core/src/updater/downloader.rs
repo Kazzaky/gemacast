@@ -55,7 +55,7 @@ impl Default for UpdateDownloader {
         let http_client = reqwest::Client::builder()
             .redirect(reqwest::redirect::Policy::custom(|attempt| {
                 if attempt.previous().len() >= 5 {
-                    return attempt.stop();
+                    return attempt.error("too many update redirects");
                 }
                 let url = attempt.url();
                 if approved_redirect_url(url) {
