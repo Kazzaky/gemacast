@@ -5,7 +5,6 @@ import { useUpdateStore } from '../stores/update-store';
 
 export class UpdateController {
   start(): () => void {
-    if (useUpdateStore.getState().status === 'idle') void this.check();
     document.addEventListener('visibilitychange', this.handleVisibilityChange);
     return () => document.removeEventListener('visibilitychange', this.handleVisibilityChange);
   }
