@@ -232,11 +232,23 @@ mod tests {
     use std::sync::atomic::{AtomicBool, AtomicU16, AtomicU32};
     use tokio::sync::mpsc;
 
+    fn test_audio_key() -> AudioSessionKey {
+        AudioSessionKey::from_session_token(&"66".repeat(32)).unwrap()
+    }
+
     fn test_playback_control() -> PlaybackControl {
         PlaybackControl::channel().0
     }
 
     fn receive_sequence(results: Vec<Result<Vec<u8>, std::io::ErrorKind>>) -> Vec<RawPacket> {
+        let cipher = AudioPacketCipher::new(&test_audio_key());
+        let results = results
+            .into_iter()
+            .map(|result| result.and_then(|mut packet| {
+                cipher.seal(&mut packet).map_err(|_| std::io::ErrorKind::InvalidData)?;
+                Ok(packet)
+            }))
+            .collect();
         let (producer, mut consumer) = HeapRb::<RawPacket>::new(8).split();
         let (drop_tx, _) = mpsc::channel(1);
         PacketReceiver::spawn(
@@ -253,6 +265,7 @@ mod tests {
             Some("127.0.0.1".parse().unwrap()),
             test_playback_control(),
             None,
+            test_audio_key(),
         )
         .join()
         .unwrap();
@@ -339,6 +352,9 @@ mod tests {
         // payload = some data
         dummy_packet[9..19].copy_from_slice(&[0x1; 10]);
 
+        let cipher = AudioPacketCipher::new(&test_audio_key());
+        cipher.seal(&mut dummy_packet).unwrap();
+
         let transport = MockTransport {
             packet_to_send: Some(dummy_packet),
             streamer_addr: "127.0.0.1:1234".parse().unwrap(),
@@ -358,6 +374,7 @@ mod tests {
             Some("127.0.0.1".parse().unwrap()),
             test_playback_control(),
             None,
+            test_audio_key(),
         );
 
         // Wait for thread to exit
@@ -403,6 +420,7 @@ mod tests {
             Some("10.0.0.1".parse().unwrap()),
             test_playback_control(),
             None,
+            test_audio_key(),
         );
 
         handle.join().unwrap();
@@ -439,6 +457,7 @@ mod tests {
             Some("10.0.0.1".parse().unwrap()),
             test_playback_control(),
             None,
+            test_audio_key(),
         );
 
         handle.join().unwrap();
