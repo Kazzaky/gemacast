@@ -41,7 +41,7 @@ function createInitialState(deviceInfo: DeviceInfo): AppState {
     reconnectAttempts: 0,
     metrics: EMPTY_METRICS,
     settings: loadSettings(),
-    availableModes: { wifi: true, usb: false, adb: false },
+    availableModes: { wifi: true, usb: false },
     audioSources: [],
     currentAudioSource: { type: 'desktop' } as AudioSource,
     streamerCapabilities: null,
@@ -76,7 +76,7 @@ type AppActions = {
   resetMetrics: () => void;
 
   updateSettings: (patch: Partial<AppSettings>) => void;
-  setAvailableModes: (modes: { wifi: boolean; usb: boolean; adb: boolean }) => void;
+  setAvailableModes: (modes: { wifi: boolean; usb: boolean }) => void;
 
   setDeviceInfo: (info: Partial<DeviceInfo>) => void;
 
@@ -196,21 +196,21 @@ export const useAppStore = create<AppStore>((set, get) => ({
 
   setAvailableModes: (modes) => {
     const { settings, availableModes: prev } = get();
-    if (prev.wifi !== modes.wifi || prev.usb !== modes.usb || prev.adb !== modes.adb) {
+    if (prev.wifi !== modes.wifi || prev.usb !== modes.usb) {
       set({ availableModes: modes });
     }
 
     const modeAvailable = (m: ConnectionMode) =>
-      m === ConnectionMode.Wifi ? modes.wifi : m === ConnectionMode.Usb ? modes.usb : modes.adb;
+      m === ConnectionMode.Wifi ? modes.wifi : modes.usb;
 
     if (modeAvailable(settings.mode)) return;
 
-    const prevAnyAvailable = prev.wifi || prev.usb || prev.adb;
-    const nowAnyAvailable = modes.wifi || modes.usb || modes.adb;
+    const prevAnyAvailable = prev.wifi || prev.usb;
+    const nowAnyAvailable = modes.wifi || modes.usb;
 
     if (!nowAnyAvailable) return;
 
-    const priority = [ConnectionMode.Wifi, ConnectionMode.Usb, ConnectionMode.Adb];
+    const priority = [ConnectionMode.Wifi, ConnectionMode.Usb];
     const next = priority.find(modeAvailable);
     if (next && (prevAnyAvailable || nowAnyAvailable)) {
       const updated = { ...settings, mode: next };
