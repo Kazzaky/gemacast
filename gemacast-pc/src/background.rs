@@ -207,8 +207,6 @@ struct EngineWithAdapters {
     control_command_rx: mpsc::Receiver<ControlCommand>,
     audio_command_tx: mpsc::Sender<gemacast_core::stream::streamer::AudioStreamCommand>,
     audio_command_rx: mpsc::Receiver<gemacast_core::stream::streamer::AudioStreamCommand>,
-    adb_shutdown_tx: broadcast::Sender<()>,
-    adb_outbound_control_tx: broadcast::Sender<ControlMessage>,
     fatal_error_tx: mpsc::Sender<String>,
     fatal_error_rx: mpsc::Receiver<String>,
 
@@ -306,8 +304,6 @@ impl EngineWithAdapters {
             control_command_rx: self.control_command_rx,
             audio_command_tx: self.audio_command_tx,
             audio_command_rx: self.audio_command_rx,
-            adb_shutdown_tx: self.adb_shutdown_tx,
-            adb_outbound_control_tx: self.adb_outbound_control_tx,
             fatal_error_tx: self.fatal_error_tx,
             fatal_error_rx: self.fatal_error_rx,
             tray: self.tray,
