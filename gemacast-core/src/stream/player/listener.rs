@@ -17,7 +17,6 @@ use super::heartbeat::KeepaliveHeartbeat;
 use super::packet_receiver::PacketReceiver;
 use super::playback_control::{PlaybackCommand, PlaybackControl};
 use super::playback_worker::PlaybackWorker;
-use super::session::AudioSessionCredentials;
 use super::stream::PlaybackStream;
 
 const PACKET_CHANNEL_CAPACITY: usize = 1024;
@@ -137,16 +136,8 @@ impl AudioStreamPlayer {
         latency_tx: Option<mpsc::Sender<(f32, f32, f32)>>,
         rtt_tx: Option<mpsc::Sender<f32>>,
         target_ip: Option<std::net::IpAddr>,
-        mode: crate::domain::types::ConnectionMode,
-        credentials: AudioSessionCredentials,
     ) -> Result<(), GemaCastError> {
-        let (transport, heartbeat_socket) = super::transport::AudioTransportFactory::create(
-            mode,
-            target_ip,
-            &credentials.device_id,
-            credentials.session_token.as_deref(),
-            credentials.session_generation,
-        )?;
+        let (transport, heartbeat_socket) = super::transport::AudioTransportFactory::create(target_ip)?;
         let heartbeat_active = Arc::new(AtomicBool::new(true));
         let streamer_port = Arc::new(AtomicU16::new(Ports::AUDIO_UDP));
 
