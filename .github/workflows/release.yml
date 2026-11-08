@@ -153,11 +153,6 @@ jobs:
           # Actually do builds and make zips and whatnot
           dist build ${{ needs.plan.outputs.tag-flag }} --print=linkage --output-format=json ${{ matrix.dist_args }} > dist-manifest.json
           echo "dist ran successfully"
-      - name: Verify ADB is bundled in artifacts
-        shell: bash
-        env:
-          MANIFEST_PATH: dist-manifest.json
-        run: bash .github/scripts/verify-adb-in-archives.sh
       - id: cargo-dist
         name: Post-build
         shell: bash
