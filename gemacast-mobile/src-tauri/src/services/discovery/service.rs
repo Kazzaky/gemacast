@@ -393,7 +393,6 @@ mod tests {
         let modes = get_connection_status(&network, &platform).unwrap();
         assert!(modes.wifi);
         assert!(modes.usb);
-        assert!(modes.adb);
     }
 
     #[test]
@@ -403,7 +402,6 @@ mod tests {
 
         let modes = get_connection_status(&network, &platform).unwrap();
         assert!(modes.wifi, "WIFI:5180 should still enable wifi mode");
-        assert!(!modes.adb);
     }
 
     // ---------------------------------------------------------------
@@ -433,7 +431,7 @@ mod tests {
         // upstream, so neither WIFI nor ETHERNET is reported and `wifi` used to
         // stay false — leaving USB as the only selectable mode for a radio link.
         let network = MockNetworkInfoProvider::new();
-        let platform = MockPlatformService::new().with_transport_type("NONE|ADB_OFF|HOTSPOT");
+        let platform = MockPlatformService::new().with_transport_type("NONE|HOTSPOT");
 
         let modes = get_connection_status(&network, &platform).unwrap();
         assert!(modes.wifi, "A Wi-Fi hotspot must enable Wi-Fi mode");
@@ -470,7 +468,7 @@ mod tests {
         // The guard must be scoped to hotspots only: an ordinary Wi-Fi client
         // still gets its band from the JNI frequency.
         let network = MockNetworkInfoProvider::new();
-        let platform = MockPlatformService::new().with_transport_type("WIFI:5180|ADB_OFF");
+        let platform = MockPlatformService::new().with_transport_type("WIFI:5180");
 
         let link = detect_phone_link(&network, &platform, "wifi");
         assert_eq!(link, NetworkLink::Wifi5Ghz);
@@ -539,7 +537,7 @@ mod tests {
     #[test]
     fn detect_phone_link_wifi_no_frequency() {
         let network = MockNetworkInfoProvider::new();
-        let platform = MockPlatformService::new().with_transport_type("WIFI|ADB_OFF");
+        let platform = MockPlatformService::new().with_transport_type("WIFI");
 
         let link = detect_phone_link(&network, &platform, "wifi");
         assert_eq!(link, NetworkLink::WifiUnknown);
@@ -548,7 +546,7 @@ mod tests {
     #[test]
     fn detect_phone_link_ethernet_transport_is_usb_tether() {
         let network = MockNetworkInfoProvider::new();
-        let platform = MockPlatformService::new().with_transport_type("ETHERNET|ADB_ON");
+        let platform = MockPlatformService::new().with_transport_type("ETHERNET");
 
         let link = detect_phone_link(&network, &platform, "usb");
         assert_eq!(link, NetworkLink::UsbTether);
