@@ -17,7 +17,7 @@ use gemacast_core::stream::streamer::{AudioStreamEngine, StreamSessionFailure};
 
 use crate::adapters::device::WsConnectionMap;
 use crate::adapters::{
-    ChannelAudioController, EventLoopTrayNotifier, MultiTransportDeviceNotifier,
+    ChannelAudioController, EventLoopTrayNotifier, WsDeviceNotifier,
 };
 use crate::events::{AppCommand, TrayEvent};
 use crate::state::SharedMapDeviceRegistry;
@@ -161,7 +161,7 @@ impl EngineWithChannels {
         let audio: Arc<dyn crate::traits::AudioController> =
             Arc::new(ChannelAudioController::new(self.audio_command_tx.clone()));
         let notifier: Arc<dyn crate::traits::DeviceNotifier> =
-            Arc::new(MultiTransportDeviceNotifier::new(
+            Arc::new(WsDeviceNotifier::new(
                 self.ws_connections.clone(),
             ));
 
