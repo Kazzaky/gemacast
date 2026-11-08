@@ -1,4 +1,4 @@
-const REPO_URL = 'https://github.com/apirJS/gemacast'
+const REPO_URL = 'https://github.com/Kazzaky/gemacast'
 const LATEST_DOWNLOAD_URL = `${REPO_URL}/releases/latest/download`
 
 export const links = {
