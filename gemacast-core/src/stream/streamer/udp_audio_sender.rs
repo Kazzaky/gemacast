@@ -26,6 +26,26 @@ use tokio::{
 
 static LAST_GENERATION: AtomicU64 = AtomicU64::new(0);
 
+// Every UDP sender reserves a disjoint sequence-number interval. A sender may
+// be recreated during bitrate/source changes while the TLS session key stays
+// the same; using wall-clock milliseconds as the nonce sequence base could
+// therefore repeat a ChaCha20-Poly1305 nonce after a clock adjustment or a
+// rapid restart. At 100 frames/s this interval lasts over 348 years.
+const SEQUENCE_RESERVATION_SIZE: u64 = 1 << 40;
+static NEXT_SEQUENCE_BASE: AtomicU64 = AtomicU64::new(0);
+
+fn reserve_sequence_base() -> Result<u64, NetworkError> {
+    NEXT_SEQUENCE_BASE
+        .fetch_update(Ordering::Relaxed, Ordering::Relaxed, |current| {
+            current.checked_add(SEQUENCE_RESERVATION_SIZE)
+        })
+        .map_err(|_| {
+            NetworkError::SendFailed(std::io::Error::other(
+                "UDP audio sequence space exhausted; cannot reserve a nonce-safe range",
+            ))
+        })
+}
+
 #[derive(Default)]
 struct SendCounters {
     packets: u64,
@@ -89,13 +109,14 @@ impl UdpAudioSender {
             })
             .unwrap();
         let generation = (generation + 1).max(epoch.as_micros() as u64);
+        let sequence_base = reserve_sequence_base()?;
         let socket = UdpSocket::from_std(socket.into()).map_err(NetworkError::RecvFailed)?;
         Ok(Self {
             socket,
             _priority: priority,
             target,
             generation,
-            sequence_base: epoch.as_millis() as u64,
+            sequence_base,
             counters: SendCounters::default(),
         })
     }
@@ -205,8 +226,19 @@ impl UdpAudioSender {
                         continue;
                     }
                     // Capture positions survive queue drops; the receiver observes the discontinuity.
+                    // Refuse to cross this sender's reserved interval: reusing a
+                    // sequence value would also reuse its ChaCha20-Poly1305 nonce.
+                    if frame.position >= SEQUENCE_RESERVATION_SIZE {
+                        return Err(NetworkError::SendFailed(std::io::Error::other(
+                            "UDP audio sender exhausted its reserved nonce sequence range",
+                        )).into());
+                    }
+                    let sequence = sender.sequence_base.checked_add(frame.position)
+                        .ok_or_else(|| NetworkError::SendFailed(std::io::Error::other(
+                            "UDP audio sequence number overflow",
+                        )))?;
                     AudioFrameEncoder::encode(&frame.samples, encoder.as_mut(), bitrate,
-                        sender.sequence_base.wrapping_add(frame.position), &mut opus_output, &mut packet)?;
+                        sequence, &mut opus_output, &mut packet)?;
                     chunked = packet[8] == FORMAT_UNCOMPRESSED;
                     pending = Some(frame);
                 }
@@ -259,6 +291,27 @@ mod tests {
 
     fn test_audio_key() -> AudioSessionKey {
         AudioSessionKey::from_session_token(&"22".repeat(32)).unwrap()
+    }
+
+    #[test]
+    fn sender_instances_reserve_disjoint_nonce_sequence_ranges() {
+        let target = "127.0.0.1:0".parse().unwrap();
+        let first = UdpAudioSender::new(target).unwrap();
+        let second = UdpAudioSender::new(target).unwrap();
+
+        let first_end = first.sequence_base + SEQUENCE_RESERVATION_SIZE - 1;
+        let second_end = second.sequence_base + SEQUENCE_RESERVATION_SIZE - 1;
+        assert!(
+            first_end < second.sequence_base || second_end < first.sequence_base,
+            "sender sequence intervals must never overlap"
+        );
+    }
+
+    #[test]
+    fn sequence_reservations_are_large_enough_for_a_sender_lifetime() {
+        // At the 10 ms capture cadence, one interval is over 348 years.
+        assert_eq!(SEQUENCE_RESERVATION_SIZE, 1u64 << 40);
+        assert!(SEQUENCE_RESERVATION_SIZE > 100 * 60 * 60 * 24 * 365);
     }
 
     #[tokio::test]
