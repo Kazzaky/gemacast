@@ -6,7 +6,7 @@ use std::net::SocketAddr;
 ///
 /// Devices are notified through the authenticated WSS control channel.
 ///
-/// **Production**: [`crate::adapters::MultiTransportDeviceNotifier`].
+/// **Production**: [`crate::adapters::WsDeviceNotifier`].
 /// **Tests**: [`crate::testing::mocks::MockDeviceNotifier`] that records calls.
 #[async_trait]
 pub trait DeviceNotifier: Send + Sync {
