@@ -46,11 +46,6 @@ impl AudioBitrate {
 pub struct DeviceId(pub String);
 
 #[derive(Debug, Clone, PartialEq, Eq, Hash)]
-pub enum TargetId {
-    Udp(SocketAddr),
-    Tcp(DeviceId),
-}
-
 impl fmt::Display for DeviceId {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         f.write_str(&self.0)
@@ -95,7 +90,6 @@ impl Default for DeviceId {
 pub enum TransportType {
     Wifi,
     Usb,
-    Adb,
 }
 
 #[derive(Debug, Clone, Default, PartialEq, Eq, Hash, Serialize, Deserialize)]
@@ -169,14 +163,12 @@ pub enum ConnectionMode {
 pub struct ConnectionModes {
     pub wifi: bool,
     pub usb: bool,
-    pub adb: bool,
 }
 
 pub fn get_available_connection_modes() -> ConnectionModes {
     ConnectionModes {
         wifi: true,
         usb: true,
-        adb: true,
     }
 }
 
@@ -210,8 +202,6 @@ impl Default for JitterConfig {
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase")]
 pub enum NetworkLink {
-    /// ADB reverse port forwarding (localhost TCP).
-    Adb,
     /// USB tethering (direct cable, RNDIS/ETHERNET transport).
     UsbTether,
     /// WiFi on 5 GHz or 6 GHz band (clean, low jitter).
@@ -232,7 +222,7 @@ impl NetworkLink {
     /// to pick the weaker side.
     pub fn quality_rank(self) -> u8 {
         match self {
-            Self::Adb | Self::UsbTether => 0, // Best: direct cable / localhost
+            Self::UsbTether => 0, // Best: direct cable
             Self::Ethernet => 1,              // Excellent: wired LAN
             Self::Wifi5Ghz => 2,              // Great: clean RF band
             Self::WifiUnknown => 3,           // Unknown WiFi: assume mediocre
@@ -258,11 +248,7 @@ impl LinkPair {
     pub fn effective_link(&self) -> NetworkLink {
         let has = |link: NetworkLink| self.phone == link || self.pc == link;
 
-        // 1. Direct cables bypass everything. If either side knows it's a wire,
-        // we trust the wire. (ADB is port forwarding, USB is direct).
-        if has(NetworkLink::Adb) {
-            return NetworkLink::Adb;
-        }
+        // 1. Direct USB tethering bypasses radio conditions.
         if has(NetworkLink::UsbTether) {
             return NetworkLink::UsbTether;
         }
@@ -305,21 +291,11 @@ impl JitterConfig {
     /// generic Auto config entirely.
     pub fn for_link_pair(pair: LinkPair) -> Self {
         match pair.effective_link() {
-            // Direct cable / localhost (ADB, USB tether).
-            //
-            // These links have near-zero *scheduling* jitter but deliver in
-            // USB-transit BATCHES, so the honest steady-state occupancy is ~40ms
-            // (see latency logs), not the ~2ms the transport's raw latency suggests.
-            // The former `min 2ms / cap 20ms` profile collapsed the target to the
-            // 1-frame floor (`comfort_cap ≤ 8 frames` selects the finest quantum=1
-            // regime in `TargetController`), so the buffer sat permanently above the
-            // drain band and got shredded by continuous WSOLA splices — the constant
-            // ADB "buzz". `cap 100ms` (10 frames) lifts it into the quantum=2 regime
-            // and gives a target of ~3-4 frames, so `filtered` sits *below* the drain
-            // `high` limit in steady state and normal time-stretching essentially
-            // stops firing. This is not added latency — it matches the buffer's real
-            // operating point instead of chasing an unachievable 2ms.
-            NetworkLink::Adb | NetworkLink::UsbTether => Self {
+            // Direct USB tethering.
+            // Direct USB tethering can deliver audio in USB-transit batches. The
+            // 30–100ms profile provides enough headroom without chasing unrealistic
+            // sub-millisecond scheduling jitter.
+            NetworkLink::UsbTether => Self {
                 min_depth_ms: 30,
                 comfort_cap_ms: 100,
                 peak_decay_halflife_ms: 500,
@@ -475,10 +451,6 @@ mod tests {
 
         #[test]
         fn serde_should_use_lowercase_variant_names() {
-            let t = TransportType::Adb;
-            let json = serde_json::to_string(&t).unwrap();
-            assert_eq!(json, "\"adb\"");
-
             let parsed: TransportType = serde_json::from_str("\"wifi\"").unwrap();
             assert_eq!(parsed, TransportType::Wifi);
         }
@@ -540,7 +512,6 @@ mod tests {
 
         #[test]
         fn quality_rank_order_should_be_cable_best_unknown_worst() {
-            assert!(NetworkLink::Adb.quality_rank() < NetworkLink::Ethernet.quality_rank());
             assert!(NetworkLink::UsbTether.quality_rank() < NetworkLink::Ethernet.quality_rank());
             assert!(NetworkLink::Ethernet.quality_rank() < NetworkLink::Wifi5Ghz.quality_rank());
             assert!(NetworkLink::Wifi5Ghz.quality_rank() < NetworkLink::WifiUnknown.quality_rank());
@@ -551,17 +522,8 @@ mod tests {
         }
 
         #[test]
-        fn adb_and_usb_tether_should_have_same_rank() {
-            assert_eq!(
-                NetworkLink::Adb.quality_rank(),
-                NetworkLink::UsbTether.quality_rank()
-            );
-        }
-
-        #[test]
         fn serde_should_round_trip_all_variants() {
             let variants = [
-                NetworkLink::Adb,
                 NetworkLink::UsbTether,
                 NetworkLink::Wifi5Ghz,
                 NetworkLink::Wifi2_4Ghz,
@@ -615,17 +577,6 @@ mod tests {
         }
 
         #[test]
-        fn effective_link_both_adb_should_return_adb() {
-            let pair = LinkPair {
-                phone: NetworkLink::Adb,
-                pc: NetworkLink::Ethernet,
-            };
-            // Direct cables bypass the quality ranking: if either side reports a
-            // wire (ADB port-forward here), `effective_link` trusts the wire.
-            assert_eq!(pair.effective_link(), NetworkLink::Adb);
-        }
-
-        #[test]
         fn effective_link_ethernet_pc_with_unknown_phone() {
             let pair = LinkPair {
                 phone: NetworkLink::Unknown,
@@ -651,33 +602,6 @@ mod tests {
 
     mod for_link_pair {
         use super::*;
-
-        #[test]
-        fn adb_pair_should_produce_cable_profile() {
-            let pair = LinkPair {
-                phone: NetworkLink::Adb,
-                pc: NetworkLink::Ethernet,
-            };
-            let config = JitterConfig::for_link_pair(pair);
-            // Direct cables bypass the ranking: ADB wins → cable profile. The cap
-            // is 100ms (10 frames) so the target lands in the quantum=2 regime and
-            // matches ADB's real ~40ms batch-delivery operating point rather than
-            // collapsing to the 1-frame floor (the constant-buzz cause).
-            assert_eq!(config.min_depth_ms, 30);
-            assert_eq!(config.comfort_cap_ms, 100);
-        }
-
-        #[test]
-        fn both_adb_should_produce_cable_profile() {
-            let pair = LinkPair {
-                phone: NetworkLink::Adb,
-                pc: NetworkLink::UsbTether,
-            };
-            let config = JitterConfig::for_link_pair(pair);
-            assert_eq!(config.min_depth_ms, 30);
-            assert_eq!(config.comfort_cap_ms, 100);
-            assert_eq!(config.peak_decay_halflife_ms, 500);
-        }
 
         #[test]
         fn both_5ghz_should_produce_aggressive() {
@@ -762,7 +686,6 @@ mod tests {
         #[test]
         fn all_profiles_should_have_no_static_target() {
             let pairs = [
-                (NetworkLink::Adb, NetworkLink::Adb),
                 (NetworkLink::Wifi5Ghz, NetworkLink::Wifi5Ghz),
                 (NetworkLink::Wifi2_4Ghz, NetworkLink::Wifi2_4Ghz),
                 (NetworkLink::Unknown, NetworkLink::Unknown),
