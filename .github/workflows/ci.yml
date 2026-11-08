@@ -65,7 +65,6 @@ jobs:
 
   backend:
     name: Backend Checks (${{ matrix.name }})
-    if: ${{ github.event_name != 'pull_request' || github.event.pull_request.user.login != 'apir-s-semantic-release-bot[bot]' }}
     strategy:
       fail-fast: false
       matrix:
