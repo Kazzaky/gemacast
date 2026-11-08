@@ -1,4 +1,4 @@
-use gemacast_core::domain::types::{ConnectionMode, DeviceId};
+use gemacast_core::domain::types::DeviceId;
 use gemacast_core::network::Ports;
 use std::sync::Arc;
 use std::sync::atomic::{AtomicBool, Ordering};
@@ -10,13 +10,8 @@ impl SubnetProbe {
     pub async fn run(
         socket: Arc<UdpSocket>,
         device_id: DeviceId,
-        mode: ConnectionMode,
         is_streaming: Arc<AtomicBool>,
     ) {
-        if mode == ConnectionMode::Adb {
-            return;
-        }
-
         let mut interval = tokio::time::interval(tokio::time::Duration::from_millis(5000));
         let payload = gemacast_core::control::messages::ControlMessage::Probe {
             device_id: Some(device_id),
