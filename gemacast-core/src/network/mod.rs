@@ -1,6 +1,5 @@
-//! Network utilities, port definitions, and ADB transport support.
+//! Network utilities, port definitions, and interface classification.
 
-pub mod adb;
 mod classification;
 mod interfaces;
 mod link;
