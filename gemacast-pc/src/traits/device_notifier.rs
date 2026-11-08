@@ -4,7 +4,7 @@ use std::net::SocketAddr;
 
 /// Notifies a connected device to disconnect, using the best available transport.
 ///
-/// The notification order is: WSS -> ADB broadcast (if loopback).
+/// Devices are notified through the authenticated WSS control channel.
 ///
 /// **Production**: [`crate::adapters::MultiTransportDeviceNotifier`].
 /// **Tests**: [`crate::testing::mocks::MockDeviceNotifier`] that records calls.
