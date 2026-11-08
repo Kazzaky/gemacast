@@ -31,11 +31,9 @@ on:
 # Value will filled later
 env:
   MSI_PATH: ""
-  # Fingerprint of the release signing key, published at keys.openpgp.org (where
-  # the fingerprint *is* the lookup key, so it cannot be substituted). Defined at
-  # workflow level because two jobs need the same literal: `sign-release` pins the
-  # imported secret against it, and `announce` prints it in the release notes.
-  SIGNING_KEY_FINGERPRINT: 39CC5E917268B9C8BCDF8808CD07F0895F742E6F
+  # Public fingerprint for this fork's own release-signing key. Configure the
+  # repository variable GPG_SIGNING_KEY_FINGERPRINT before publishing a release.
+  SIGNING_KEY_FINGERPRINT: ${{ vars.GPG_SIGNING_KEY_FINGERPRINT }}
 
 jobs:
   # ═══════════════════════════════════════════════════════════════════════════
