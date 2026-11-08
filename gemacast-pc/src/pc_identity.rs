@@ -145,11 +145,51 @@ fn save_file(path: &Path, contents: &[u8]) -> io::Result<()> {
 }
 
 fn save_private_file(path: &Path, contents: &[u8]) -> io::Result<()> {
-    save_file(path, contents)?;
+    use std::io::Write;
+    use std::time::{SystemTime, UNIX_EPOCH};
+
+    if let Some(parent) = path.parent() {
+        std::fs::create_dir_all(parent)?;
+        #[cfg(unix)]
+        {
+            use std::os::unix::fs::PermissionsExt;
+            std::fs::set_permissions(parent, std::fs::Permissions::from_mode(0o700))?;
+        }
+    }
+
+    // Create the temporary private-key file with restrictive permissions from
+    // the first filesystem operation. Do not write it with the default umask
+    // and chmod only after rename: another local user could read that window.
+    let stamp = SystemTime::now()
+        .duration_since(UNIX_EPOCH)
+        .unwrap_or_default()
+        .as_nanos();
+    let file_name = path.file_name().ok_or_else(|| {
+        io::Error::new(io::ErrorKind::InvalidInput, "PC identity key path has no file name")
+    })?;
+    let tmp_path = path.with_file_name(format!(
+        "{}.tmp-{}-{stamp}",
+        file_name.to_string_lossy(),
+        std::process::id()
+    ));
+
+    let mut options = std::fs::OpenOptions::new();
+    options.write(true).create_new(true);
     #[cfg(unix)]
     {
-        use std::os::unix::fs::PermissionsExt;
-        std::fs::set_permissions(path, std::fs::Permissions::from_mode(0o600))?;
+        use std::os::unix::fs::OpenOptionsExt;
+        options.mode(0o600);
+    }
+    let mut file = options.open(&tmp_path)?;
+    if let Err(error) = file.write_all(contents).and_then(|()| file.sync_all()) {
+        let _ = std::fs::remove_file(&tmp_path);
+        return Err(error);
+    }
+    drop(file);
+
+    if let Err(error) = std::fs::rename(&tmp_path, path) {
+        let _ = std::fs::remove_file(&tmp_path);
+        return Err(error);
     }
     Ok(())
 }
@@ -174,6 +214,32 @@ fn quarantine_identity_file(path: &Path) -> io::Result<()> {
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    #[cfg(unix)]
+    #[test]
+    fn private_key_file_is_created_with_owner_only_permissions() {
+        use std::os::unix::fs::PermissionsExt;
+
+        let root = std::env::temp_dir().join(format!(
+            "gemacast-pc-identity-permissions-{}-{}",
+            std::process::id(),
+            std::time::SystemTime::now()
+                .duration_since(std::time::UNIX_EPOCH)
+                .unwrap()
+                .as_nanos()
+        ));
+        let key_path = root.join("key.der");
+        let cert_path = root.join("cert.der");
+        PcIdentity::load_or_create(cert_path, key_path.clone()).unwrap();
+
+        let mode = std::fs::metadata(&key_path).unwrap().permissions().mode() & 0o777;
+        assert_eq!(mode, 0o600);
+        assert_eq!(
+            std::fs::metadata(&root).unwrap().permissions().mode() & 0o777,
+            0o700
+        );
+        let _ = std::fs::remove_dir_all(root);
+    }
 
     #[test]
     fn identity_should_survive_reload_with_the_same_fingerprint() {
