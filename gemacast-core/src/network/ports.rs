@@ -14,10 +14,4 @@ impl Ports {
 
     /// UDP real-time audio, PC -> phone.
     pub const AUDIO_UDP: u16 = 23556;
-
-    /// TCP audio over `adb reverse`. Length-prefixed by [`TcpAudioFramer`].
-    pub const ADB_AUDIO_TCP: u16 = 23557;
-
-    /// TCP discovery over `adb reverse`. Newline-delimited `ControlMessage` JSON.
-    pub const ADB_DISCOVERY_TCP: u16 = 23558;
 }
