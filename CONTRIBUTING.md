@@ -47,10 +47,6 @@ CI builds PipeWire 1.2.7 and WirePlumber 0.5.15 from source. Use the
 [CI setup](.github/workflows/ci.yml) or [Linux container](docker/README.md).
 Linux workspace checks also require the Tauri libraries listed in that workflow.
 
-The [PC build script](gemacast-pc/build.rs) downloads ADB using `curl` and
-extracts it with `tar` on Windows or `unzip` for the usual Linux/macOS archives.
-The Linux ARM64 archive uses `tar`. Uncached builds require network access.
-
 ### Android SDK
 
 Install the Android packages listed above and `platform-tools`. Configure:
@@ -69,8 +65,8 @@ cargo install cargo-ndk
 rustup target add aarch64-linux-android armv7-linux-androideabi i686-linux-android x86_64-linux-android
 ```
 
-ARM64-only builds require only `aarch64-linux-android`. A connected phone must
-have USB debugging enabled and appear as `device` in `adb devices`.
+ARM64-only builds require only `aarch64-linux-android`. For USB deployment, a connected phone must have USB debugging enabled and
+appear as `device` in `adb devices`.
 
 ## Build
 
