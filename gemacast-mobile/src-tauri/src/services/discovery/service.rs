@@ -78,7 +78,7 @@ fn get_network_identifier(network: &dyn NetworkInfoProvider) -> Result<String, S
 }
 
 /// Tethering state reported by the Android layer, third field of the transport
-/// string (`"<transports>|<adb>|<tether>"`).
+/// string (`"<transports>|<tether>"`).
 ///
 /// Present because a tethering phone's *active* network is its upstream — often
 /// cellular — so `NetworkCapabilities` reports neither WIFI nor ETHERNET, and a
@@ -96,7 +96,7 @@ pub enum TetherState {
 /// an older Kotlin layer that does not send it still behaves as before.
 impl TetherState {
     pub fn from_transport(transport: &str) -> Self {
-        match transport.split('|').nth(2).unwrap_or("") {
+        match transport.split('|').nth(1).unwrap_or("") {
             "HOTSPOT" => Self::Hotspot,
             "USB_TETHER" => Self::UsbTether,
             _ => Self::None,
@@ -121,12 +121,6 @@ fn get_connection_status(
 
         let parts: Vec<&str> = transport_str.split('|').collect();
         let network_type = parts.first().unwrap_or(&"");
-        let adb_status = parts.get(1).unwrap_or(&"");
-
-        if *adb_status == "ADB_OFF" {
-            modes.adb = false;
-        }
-
         for transport in network_type.split(',') {
             if transport == "WIFI" || transport.starts_with("WIFI:") {
                 modes.wifi = true;
@@ -174,7 +168,6 @@ fn get_network_state(
     let modes = get_connection_status(network, platform).unwrap_or(ConnectionModes {
         wifi: true,
         usb: false,
-        adb: false,
     });
 
     Ok(NetworkState {
@@ -197,12 +190,12 @@ fn paired_pc_ids(platform: &dyn PlatformService) -> Result<Vec<DeviceId>, String
 /// Detect the phone's network link type from platform transport info.
 ///
 /// Combines the user-selected connection mode with the Android JNI transport
-/// string (e.g., `"WIFI:5180|ADB_ON"`) to determine the best description
+/// string (e.g., `"WIFI:5180"`) to determine the best description
 /// of the phone's network link quality.
 fn detect_phone_link(
     network: &dyn NetworkInfoProvider,
     platform: &dyn PlatformService,
-    mode: &str, // "wifi", "usb", "adb"
+    mode: &str, // "wifi" or "usb"
 ) -> NetworkLink {
     let transport_str = platform.get_transport_type().unwrap_or_default();
     tracing::info!(
@@ -211,13 +204,7 @@ fn detect_phone_link(
         "Detecting phone network link"
     );
 
-    // 1. ADB mode → Always ADB
-    if mode == "adb" {
-        tracing::info!(link = ?NetworkLink::Adb, "Phone link detected (ADB mode)");
-        return NetworkLink::Adb;
-    }
-
-    // 2. USB mode → Always USB Tether
+    // USB mode → Always USB Tether
     if mode == "usb" {
         tracing::info!(link = ?NetworkLink::UsbTether, "Phone link detected (USB mode)");
         return NetworkLink::UsbTether;
@@ -338,12 +325,11 @@ mod tests {
     #[test]
     fn get_connection_status_parses_wifi_transport() {
         let network = MockNetworkInfoProvider::new();
-        let platform = MockPlatformService::new().with_transport_type("WIFI|ADB_ON");
+        let platform = MockPlatformService::new().with_transport_type("WIFI");
 
         let modes = get_connection_status(&network, &platform).unwrap();
         assert!(modes.wifi);
         assert!(!modes.usb);
-        assert!(modes.adb);
     }
 
     #[test]
@@ -372,20 +358,11 @@ mod tests {
         );
     }
 
-    #[test]
-    fn get_connection_status_parses_adb_off() {
-        let network = MockNetworkInfoProvider::new();
-        let platform = MockPlatformService::new().with_transport_type("WIFI|ADB_OFF");
-
-        let modes = get_connection_status(&network, &platform).unwrap();
-        assert!(modes.wifi);
-        assert!(!modes.adb);
-    }
 
     #[test]
     fn get_connection_status_detects_ethernet_as_usb() {
         let network = MockNetworkInfoProvider::new();
-        let platform = MockPlatformService::new().with_transport_type("ETHERNET|ADB_ON");
+        let platform = MockPlatformService::new().with_transport_type("ETHERNET");
 
         let modes = get_connection_status(&network, &platform).unwrap();
         assert!(!modes.wifi);
@@ -411,7 +388,7 @@ mod tests {
     #[test]
     fn get_connection_status_parses_combined_transports() {
         let network = MockNetworkInfoProvider::new();
-        let platform = MockPlatformService::new().with_transport_type("WIFI,ETHERNET|ADB_ON");
+        let platform = MockPlatformService::new().with_transport_type("WIFI,ETHERNET");
 
         let modes = get_connection_status(&network, &platform).unwrap();
         assert!(modes.wifi);
@@ -422,7 +399,7 @@ mod tests {
     #[test]
     fn get_connection_status_handles_wifi_with_frequency() {
         let network = MockNetworkInfoProvider::new();
-        let platform = MockPlatformService::new().with_transport_type("WIFI:5180|ADB_OFF");
+        let platform = MockPlatformService::new().with_transport_type("WIFI:5180");
 
         let modes = get_connection_status(&network, &platform).unwrap();
         assert!(modes.wifi, "WIFI:5180 should still enable wifi mode");
@@ -436,15 +413,15 @@ mod tests {
     #[test]
     fn parse_tether_state_reads_the_third_field() {
         assert_eq!(
-            TetherState::from_transport("NONE|ADB_OFF|HOTSPOT"),
+            TetherState::from_transport("NONE|HOTSPOT"),
             TetherState::Hotspot
         );
         assert_eq!(
-            TetherState::from_transport("WIFI:5180|ADB_ON|USB_TETHER"),
+            TetherState::from_transport("WIFI:5180|USB_TETHER"),
             TetherState::UsbTether
         );
         assert_eq!(
-            TetherState::from_transport("WIFI|ADB_ON"),
+            TetherState::from_transport("WIFI"),
             TetherState::None
         );
         assert_eq!(TetherState::from_transport(""), TetherState::None);
@@ -466,7 +443,7 @@ mod tests {
     #[test]
     fn a_usb_tether_still_enables_usb_mode() {
         let network = MockNetworkInfoProvider::new();
-        let platform = MockPlatformService::new().with_transport_type("NONE|ADB_OFF|USB_TETHER");
+        let platform = MockPlatformService::new().with_transport_type("NONE|USB_TETHER");
 
         let modes = get_connection_status(&network, &platform).unwrap();
         assert!(modes.usb, "A USB tether must enable USB mode");
@@ -478,7 +455,7 @@ mod tests {
         // *upstream* link, not the AP the PC is attached to. Claiming a band here
         // would beat the PC's real channel measurement in `effective_link`.
         let network = MockNetworkInfoProvider::new();
-        let platform = MockPlatformService::new().with_transport_type("WIFI:5180|ADB_OFF|HOTSPOT");
+        let platform = MockPlatformService::new().with_transport_type("WIFI:5180|HOTSPOT");
 
         let link = detect_phone_link(&network, &platform, "wifi");
         assert_eq!(
@@ -530,14 +507,6 @@ mod tests {
     // detect_phone_link
     // ---------------------------------------------------------------
 
-    #[test]
-    fn detect_phone_link_adb_mode_returns_adb() {
-        let network = MockNetworkInfoProvider::new();
-        let platform = MockPlatformService::new();
-
-        let link = detect_phone_link(&network, &platform, "adb");
-        assert_eq!(link, NetworkLink::Adb);
-    }
 
     #[test]
     fn detect_phone_link_wifi_5ghz_frequency() {
@@ -551,7 +520,7 @@ mod tests {
     #[test]
     fn detect_phone_link_wifi_2_4ghz_frequency() {
         let network = MockNetworkInfoProvider::new();
-        let platform = MockPlatformService::new().with_transport_type("WIFI:2412|ADB_OFF");
+        let platform = MockPlatformService::new().with_transport_type("WIFI:2412");
 
         let link = detect_phone_link(&network, &platform, "wifi");
         assert_eq!(link, NetworkLink::Wifi2_4Ghz);
@@ -561,7 +530,7 @@ mod tests {
     fn detect_phone_link_wifi_6ghz_treated_as_5ghz() {
         let network = MockNetworkInfoProvider::new();
         // 6 GHz channel, e.g., 5955 MHz
-        let platform = MockPlatformService::new().with_transport_type("WIFI:5955|ADB_OFF");
+        let platform = MockPlatformService::new().with_transport_type("WIFI:5955");
 
         let link = detect_phone_link(&network, &platform, "wifi");
         assert_eq!(link, NetworkLink::Wifi5Ghz);
