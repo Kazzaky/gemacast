@@ -8,6 +8,30 @@ use super::UpdateArtifact;
 use super::retry::RetryPolicy;
 use crate::domain::error::UpdaterError;
 
+const RELEASE_PATH_PREFIX: &str = "/Kazzaky/gemacast/releases/download/";
+
+fn validate_artifact_url(raw: &str) -> Result<(), UpdaterError> {
+    let url = reqwest::Url::parse(raw).map_err(|_| UpdaterError::InvalidArtifactUrl {
+        reason: "malformed URL",
+    })?;
+    if url.scheme() != "https" {
+        return Err(UpdaterError::InvalidArtifactUrl {
+            reason: "HTTPS is required",
+        });
+    }
+    if url.host_str() != Some("github.com")
+        || url.port_or_known_default() != Some(443)
+        || !url.username().is_empty()
+        || url.password().is_some()
+        || !url.path().starts_with(RELEASE_PATH_PREFIX)
+    {
+        return Err(UpdaterError::InvalidArtifactUrl {
+            reason: "only this fork's GitHub Releases download paths are accepted",
+        });
+    }
+    Ok(())
+}
+
 pub struct UpdateDownloader {
     http_client: reqwest::Client,
     retry_policy: RetryPolicy,
@@ -15,8 +39,23 @@ pub struct UpdateDownloader {
 
 impl Default for UpdateDownloader {
     fn default() -> Self {
+        // GitHub release downloads redirect to release-assets.githubusercontent.com.
+        // Refuse HTTP downgrade and any unexpected redirect host.
+        let http_client = reqwest::Client::builder()
+            .redirect(reqwest::redirect::Policy::custom(|attempt| {
+                let url = attempt.url();
+                if url.scheme() != "https" {
+                    return attempt.error("update redirects must remain HTTPS");
+                }
+                match url.host_str() {
+                    Some("github.com" | "release-assets.githubusercontent.com") => attempt.follow(),
+                    _ => attempt.error("update redirect host is not approved"),
+                }
+            }))
+            .build()
+            .expect("failed to build restricted update HTTP client");
         Self {
-            http_client: reqwest::Client::new(),
+            http_client,
             retry_policy: RetryPolicy::for_network_requests(),
         }
     }
@@ -60,6 +99,7 @@ impl UpdateDownloader {
     }
 
     async fn request_artifact_once(&self, url: &str) -> Result<reqwest::Response, UpdaterError> {
+        validate_artifact_url(url)?;
         self.http_client
             .get(url)
             .send()
@@ -184,3 +224,35 @@ impl DownloadProgress {
         }
     }
 }
+
+#[cfg(test)]
+mod url_tests {
+    use super::validate_artifact_url;
+
+    #[test]
+    fn accepts_only_https_release_assets_from_this_fork() {
+        assert!(validate_artifact_url(
+            "https://github.com/Kazzaky/gemacast/releases/download/v0.6.0/gemacast-mobile-universal.apk"
+        ).is_ok());
+    }
+
+    #[test]
+    fn rejects_http_artifact_urls() {
+        assert!(validate_artifact_url(
+            "http://github.com/Kazzaky/gemacast/releases/download/v0.6.0/app.apk"
+        ).is_err());
+    }
+
+    #[test]
+    fn rejects_other_hosts_and_repositories() {
+        for url in [
+            "https://example.com/Kazzaky/gemacast/releases/download/v0.6.0/app.apk",
+            "https://github.com/someone-else/gemacast/releases/download/v0.6.0/app.apk",
+            "https://user@github.com/Kazzaky/gemacast/releases/download/v0.6.0/app.apk",
+            "https://github.com:444/Kazzaky/gemacast/releases/download/v0.6.0/app.apk",
+        ] {
+            assert!(validate_artifact_url(url).is_err(), "accepted {url}");
+        }
+    }
+}
+
