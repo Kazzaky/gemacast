@@ -131,6 +131,13 @@ pub struct DiscoveredDevice {
     pub transport: Option<TransportType>,
 }
 
+/// Audio destination used by the streamer capture pipeline.
+#[derive(Debug, Clone, PartialEq, Eq, Hash)]
+pub enum TargetId {
+    Udp(SocketAddr),
+    Tcp(DeviceId),
+}
+
 impl DiscoveredDevice {
     pub fn from_presence(
         streamer_id: DeviceId,
@@ -156,7 +163,6 @@ pub enum ConnectionMode {
     #[default]
     Wifi,
     Usb,
-    Adb,
 }
 
 #[derive(Debug, Clone, Serialize)]
