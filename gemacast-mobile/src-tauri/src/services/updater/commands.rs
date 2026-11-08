@@ -83,7 +83,25 @@ pub async fn cleanup_stale_updates(app: tauri::AppHandle) -> Result<(), String> 
 /// On non-Android platforms this is a no-op that returns an error.
 #[tauri::command]
 pub async fn install_apk(app: tauri::AppHandle, path: String) -> Result<(), String> {
+    use tauri::Manager;
+
+    let updates_dir = app
+        .path()
+        .app_cache_dir()
+        .map_err(|e| format!("Failed to get cache dir: {e}"))?
+        .join("updates");
+    let expected_path = updates_dir.join("gemacast-update.apk");
+    let requested_path = std::path::Path::new(&path)
+        .canonicalize()
+        .map_err(|e| format!("Update APK path is unavailable: {e}"))?;
+    let expected_path = expected_path
+        .canonicalize()
+        .map_err(|e| format!("Verified update APK is unavailable: {e}"))?;
+    if requested_path != expected_path {
+        return Err("Refusing to install an APK outside the verified update cache".into());
+    }
+
     crate::services::platform::PlatformFacade::new(app)
-        .install_apk(&path)
+        .install_apk(expected_path.to_str().ok_or("Update APK path is not valid UTF-8")?)
         .map_err(|error| error.to_string())
 }
