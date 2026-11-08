@@ -2,10 +2,9 @@ use async_trait::async_trait;
 use std::collections::HashMap;
 use std::net::SocketAddr;
 use std::sync::{Arc, Mutex};
-use tokio::sync::{broadcast, mpsc};
+use tokio::sync::mpsc;
 
 use gemacast_core::control::ControlEventBus;
-use gemacast_core::control::messages::ControlMessage;
 use gemacast_core::control::types::WsEvent;
 use gemacast_core::domain::types::DeviceId;
 
@@ -16,27 +15,17 @@ pub type WsConnectionMap = Arc<Mutex<HashMap<DeviceId, mpsc::Sender<WsEvent>>>>;
 
 /// Notifies devices to disconnect using the best available transport.
 ///
-/// Priority: WSS -> ADB broadcast (loopback).
+/// Uses the authenticated WSS control channel.
 ///
 /// Remote phones have no inbound control listener. If WSS is unavailable,
 /// their authenticated probe/audio liveness will converge on the disconnect.
 pub struct MultiTransportDeviceNotifier {
     ws_connections: WsConnectionMap,
-    adb_outbound_control: broadcast::Sender<ControlMessage>,
-    adb_shutdown: broadcast::Sender<()>,
 }
 
 impl MultiTransportDeviceNotifier {
-    pub fn new(
-        ws_connections: WsConnectionMap,
-        adb_outbound_control: broadcast::Sender<ControlMessage>,
-        adb_shutdown: broadcast::Sender<()>,
-    ) -> Self {
-        Self {
-            ws_connections,
-            adb_outbound_control,
-            adb_shutdown,
-        }
+    pub fn new(ws_connections: WsConnectionMap) -> Self {
+        Self { ws_connections }
     }
 }
 
@@ -48,25 +37,12 @@ impl DeviceNotifier for MultiTransportDeviceNotifier {
             .await
             .is_ok();
 
-        // ADB has an independent loopback control channel. Remote devices do
-        // not expose a phone-side HTTPS endpoint, so leave their cleanup to
-        // the probe/audio liveness supervisors.
-        if !ws_ok && let Some(addr) = addr {
-            if addr.ip().is_loopback() {
-                let _ = self.adb_outbound_control.send(ControlMessage::Disconnect {
-                    device_id: device_id.clone(),
-                });
-            } else {
-                tracing::debug!(
-                    %device_id,
-                    %addr,
-                    "WSS disconnect notification unavailable; remote liveness cleanup remains authoritative"
-                );
-            }
+        if !ws_ok {
+            tracing::debug!(
+                %device_id,
+                ?addr,
+                "WSS disconnect notification unavailable; remote liveness cleanup remains authoritative"
+            );
         }
-    }
-
-    fn signal_adb_shutdown(&self) {
-        let _ = self.adb_shutdown.send(());
     }
 }
