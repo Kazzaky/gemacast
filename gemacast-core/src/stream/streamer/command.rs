@@ -1,3 +1,4 @@
+use crate::audio::AudioSessionKey;
 use crate::domain::types::{AudioSource, DeviceId};
 use std::net::SocketAddr;
 use std::sync::Arc;
@@ -26,6 +27,7 @@ pub enum AudioStreamCommand {
         target_addr: Option<SocketAddr>,
         source: Option<AudioSource>,
         bitrate: Option<i32>,
+        audio_key: AudioSessionKey,
         reply: oneshot::Sender<Result<(), String>>,
     },
     Unsubscribe {
