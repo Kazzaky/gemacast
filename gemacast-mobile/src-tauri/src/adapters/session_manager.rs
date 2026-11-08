@@ -25,8 +25,6 @@ struct ActiveSession {
     target_ip: Option<std::net::IpAddr>,
     device_id: String,
     network_link: gemacast_core::domain::types::NetworkLink,
-    session_token: Option<String>,
-    session_generation: Option<gemacast_core::control::SessionGeneration>,
 }
 
 /// Manages playback sessions and WebSocket client tasks using Tokio primitives.
@@ -60,14 +58,9 @@ impl SessionManager for TokioSessionManager {
         let player = crate::services::audio::SessionPlayer::new(self.notifier.clone()).spawn(
             crate::services::audio::SessionPlayerRequest {
                 jitter_config: params.jitter_config.clone(),
-                is_tcp: params.is_tcp,
                 exclusive_mode: params.exclusive_mode,
                 target_ip: params.target_ip,
-                mode: params.mode,
-                device_id: params.device_id.clone(),
                 network_link: params.network_link,
-                session_token: params.session_token.clone(),
-                session_generation: params.session_generation,
             },
         )?;
 
@@ -100,8 +93,6 @@ impl SessionManager for TokioSessionManager {
             target_ip: params.target_ip,
             device_id: params.device_id,
             network_link: params.network_link,
-            session_token: params.session_token,
-            session_generation: params.session_generation,
         });
 
         Ok(())
@@ -194,8 +185,6 @@ impl SessionManager for TokioSessionManager {
             target_ip: s.target_ip,
             device_id: s.device_id.clone(),
             network_link: s.network_link,
-            session_token: s.session_token.clone(),
-            session_generation: s.session_generation,
         })
     }
 
