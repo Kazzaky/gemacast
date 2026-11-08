@@ -27,7 +27,7 @@ const features: Feature[] = [
   },
   {
     icon: CableIcon,
-    title: 'Three ways to connect',
+    title: 'Two ways to connect',
     body: 'Wi-Fi over your LAN or USB tethering. Switch between them from the phone.',
     tag: 'Wi-Fi / USB',
   },
