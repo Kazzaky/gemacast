@@ -1,16 +1,13 @@
 //! Player-side transport orchestration.
 //!
-//! Creates and configures audio transport connections (UDP/TCP) for the
-//! player. The `AudioTransport` enum adapter and underlying transport
-//! structs live in [`crate::adapters::transport`].
+//! Creates and configures the UDP audio transport used by the player.
 
 use crate::adapters::transport::UdpTransport;
 use crate::domain::error::NetworkError;
 use crate::network::Ports;
 use std::net::{Ipv4Addr, SocketAddrV4};
 
-
-/// Creates the player-side UDP or ADB audio transport.
+/// Creates the player-side UDP audio transport.
 pub(crate) struct AudioTransportFactory;
 
 impl AudioTransportFactory {
@@ -84,6 +81,4 @@ impl AudioTransportFactory {
 
         Ok((UdpTransport { socket: std_socket }, heartbeat_socket))
     }
-
-
 }
