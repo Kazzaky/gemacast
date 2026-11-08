@@ -157,7 +157,6 @@ class MainActivity : TauriActivity() {
                         TetherClassifier.Tether.NONE
                     }
 
-            val intentFilter = android.content.IntentFilter("android.hardware.usb.action.USB_STATE")
             val tetherStatus =
                     when (tether) {
                         TetherClassifier.Tether.HOTSPOT -> "|HOTSPOT"
