@@ -268,7 +268,6 @@ pub mod mocks {
             device_id: DeviceId,
             addr: Option<SocketAddr>,
         },
-        AdbShutdown,
     }
 
     /// Records every disconnect notification for later assertion.
@@ -296,10 +295,6 @@ pub mod mocks {
                 device_id: device_id.clone(),
                 addr,
             });
-        }
-
-        fn signal_adb_shutdown(&self) {
-            self.calls.lock().unwrap().push(NotifierCall::AdbShutdown);
         }
     }
 
