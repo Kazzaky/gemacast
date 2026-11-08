@@ -54,6 +54,9 @@ impl Default for UpdateDownloader {
         // Refuse HTTP downgrade and any unexpected redirect host.
         let http_client = reqwest::Client::builder()
             .redirect(reqwest::redirect::Policy::custom(|attempt| {
+                if attempt.previous().len() >= 5 {
+                    return attempt.stop();
+                }
                 let url = attempt.url();
                 if approved_redirect_url(url) {
                     attempt.follow()
