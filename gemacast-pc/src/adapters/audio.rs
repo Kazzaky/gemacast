@@ -1,5 +1,6 @@
 use crate::traits::AudioController;
 use async_trait::async_trait;
+use gemacast_core::audio::AudioSessionKey;
 use gemacast_core::domain::types::{AudioSource, DeviceId};
 use gemacast_core::stream::streamer::AudioStreamCommand;
 use std::net::SocketAddr;
@@ -25,6 +26,7 @@ impl AudioController for ChannelAudioController {
         target_addr: Option<SocketAddr>,
         source: Option<AudioSource>,
         bitrate: Option<i32>,
+        audio_key: AudioSessionKey,
     ) -> Result<(), String> {
         let (reply, response) = tokio::sync::oneshot::channel();
         self.tx
@@ -34,6 +36,7 @@ impl AudioController for ChannelAudioController {
                 target_addr,
                 source,
                 bitrate,
+                audio_key,
                 reply,
             })
             .await
