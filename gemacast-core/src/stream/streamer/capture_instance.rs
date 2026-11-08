@@ -484,6 +484,10 @@ impl TcpEncoder {
 mod tests {
     use super::super::capture_pool::CapturePool;
     use super::*;
+
+    fn test_audio_key() -> AudioSessionKey {
+        AudioSessionKey::from_session_token(&"44".repeat(32)).unwrap()
+    }
     use crate::domain::types::{DeviceId, TargetId};
     use crate::ports::capture::{CaptureBackend, CaptureCounters, CaptureFactory};
     use ringbuf::HeapRb;
@@ -617,7 +621,7 @@ mod tests {
 
         // 3. Spawn UDP target encoder
         instance
-            .spawn_target_encoder(target_addr, Some(128000))
+            .spawn_target_encoder(target_addr, Some(128000), test_audio_key())
             .await
             .expect("Failed to spawn UDP encoder");
 
