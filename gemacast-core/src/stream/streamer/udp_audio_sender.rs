@@ -291,6 +291,7 @@ mod tests {
                 ready_at: now,
             }))
             .unwrap();
+            let cipher = AudioPacketCipher::new(&test_audio_key());
             let mut bytes = vec![0; 3840];
             let mut mask = 0;
             for index in 0..4 {
@@ -301,8 +302,11 @@ mod tests {
                         .try_recv_from(&mut buffer)
                         .expect("PCM chunks must be sent in one frame batch")
                 };
-                assert_eq!(len, PcmDatagram::SIZE);
-                let chunk = PcmDatagram::decode(&buffer[..len]).unwrap();
+                assert_eq!(len, PcmDatagram::SIZE + AUDIO_TAG_LEN);
+                let mut encrypted = buffer[..len].to_vec();
+                let plain_len = cipher.open(&mut encrypted).unwrap();
+                assert_eq!(plain_len, PcmDatagram::SIZE);
+                let chunk = PcmDatagram::decode(&encrypted[..plain_len]).unwrap();
                 assert_eq!(chunk.sequence, base + 5);
                 mask |= 1 << chunk.index;
                 let offset = chunk.index * PcmDatagram::PAYLOAD;
@@ -341,7 +345,10 @@ mod tests {
         let _ = stop.send(());
         task.await.unwrap().unwrap();
         let (len, _) = result.unwrap().unwrap();
-        assert_eq!(len, 9);
+        assert_eq!(len, 9 + AUDIO_TAG_LEN);
+        let cipher = AudioPacketCipher::new(&test_audio_key());
+        let plain_len = cipher.open(&mut bytes[..len]).unwrap();
+        assert_eq!(plain_len, 9);
         assert_eq!(bytes[8], crate::audio::FORMAT_SILENCE);
     }
 }
