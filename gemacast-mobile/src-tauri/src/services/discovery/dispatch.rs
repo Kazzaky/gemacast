@@ -92,11 +92,6 @@ impl DispatchContext {
                     return;
                 }
             }
-            ConnectionMode::Adb => {
-                if !audio_addr.ip().is_loopback() {
-                    return;
-                }
-            }
         }
 
         if !is_offline {
@@ -221,23 +216,4 @@ mod tests {
         assert_eq!(events.len(), 1);
     }
 
-    #[test]
-    fn adb_mode_should_only_accept_loopback() {
-        let (ctx, notifier) = make_ctx();
-        let msg = gemacast_core::control::messages::ControlMessage::Presence {
-            device_id: DeviceId("pc1".into()),
-            streamer_name: "PC".into(),
-            is_offline: false,
-            transport: None,
-        };
-        // Non-loopback should be rejected
-        let addr: std::net::SocketAddr = "10.99.99.5:23555".parse().unwrap();
-        ctx.dispatch(msg.clone(), addr, ConnectionMode::Adb);
-        assert!(notifier.take_events().is_empty());
-
-        // Loopback should be accepted
-        let loopback: std::net::SocketAddr = "127.0.0.1:23555".parse().unwrap();
-        ctx.dispatch(msg, loopback, ConnectionMode::Adb);
-        assert_eq!(notifier.take_events().len(), 1);
-    }
 }
