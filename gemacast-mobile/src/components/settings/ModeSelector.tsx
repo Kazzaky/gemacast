@@ -16,7 +16,6 @@ export function ModeSelector() {
         options={[
           { value: ConnectionMode.Wifi, label: 'WiFi', disabled: !modes.wifi },
           { value: ConnectionMode.Usb, label: 'USB', disabled: !modes.usb },
-          { value: ConnectionMode.Adb, label: 'ADB', disabled: !modes.adb },
         ]}
       />
     </div>
