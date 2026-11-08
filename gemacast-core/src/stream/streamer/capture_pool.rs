@@ -4,6 +4,7 @@ use tokio::sync::{broadcast, mpsc};
 
 use super::capture_instance::AudioCaptureInstance;
 use super::failure::StreamTaskFailure;
+use crate::audio::AudioSessionKey;
 use crate::domain::error::{AudioError, GemaCastError};
 use crate::domain::types::{AudioSource, TargetId};
 use crate::ports::capture::CaptureFactory;
@@ -41,8 +42,9 @@ impl<F: CaptureFactory> CapturePool<F> {
         source: AudioSource,
         target: TargetId,
         bitrate: Option<i32>,
+        audio_key: AudioSessionKey,
     ) -> Result<Option<broadcast::Sender<Arc<Vec<u8>>>>, GemaCastError> {
-        self.subscribe_with_channel(source, target, bitrate, None)
+        self.subscribe_with_channel(source, target, bitrate, audio_key, None)
             .await
     }
 
@@ -51,6 +53,7 @@ impl<F: CaptureFactory> CapturePool<F> {
         source: AudioSource,
         target: TargetId,
         bitrate: Option<i32>,
+        audio_key: AudioSessionKey,
         reusable_tcp_channel: Option<broadcast::Sender<Arc<Vec<u8>>>>,
     ) -> Result<Option<broadcast::Sender<Arc<Vec<u8>>>>, GemaCastError> {
         if !self.instances.contains_key(&source) {
@@ -84,7 +87,7 @@ impl<F: CaptureFactory> CapturePool<F> {
         let instance = self.instances.get_mut(&source).unwrap();
         let ret = match target {
             TargetId::Udp(addr) => {
-                instance.spawn_target_encoder(addr, bitrate).await?;
+                instance.spawn_target_encoder(addr, bitrate, audio_key).await?;
                 None
             }
             TargetId::Tcp(device_id) => Some(
@@ -130,9 +133,10 @@ impl<F: CaptureFactory> CapturePool<F> {
         new_source: AudioSource,
         target: TargetId,
         bitrate: Option<i32>,
+        audio_key: AudioSessionKey,
     ) -> Result<Option<broadcast::Sender<Arc<Vec<u8>>>>, GemaCastError> {
         if old_source == &new_source {
-            return self.subscribe(new_source, target, bitrate).await;
+            return self.subscribe(new_source, target, bitrate, audio_key).await;
         }
 
         let reusable_tcp_channel = match &target {
@@ -143,7 +147,7 @@ impl<F: CaptureFactory> CapturePool<F> {
             TargetId::Udp(_) => None,
         };
         let tx = self
-            .subscribe_with_channel(new_source, target.clone(), bitrate, reusable_tcp_channel)
+            .subscribe_with_channel(new_source, target.clone(), bitrate, audio_key, reusable_tcp_channel)
             .await?;
         let _ = self.unsubscribe(old_source, target).await;
         Ok(tx)
@@ -154,11 +158,12 @@ impl<F: CaptureFactory> CapturePool<F> {
         source: &AudioSource,
         target: TargetId,
         bitrate: Option<i32>,
+        audio_key: AudioSessionKey,
     ) -> Result<Option<broadcast::Sender<Arc<Vec<u8>>>>, GemaCastError> {
         if let Some(instance) = self.instances.get_mut(source) {
             match target {
                 TargetId::Udp(addr) => {
-                    instance.spawn_target_encoder(addr, bitrate).await?;
+                    instance.spawn_target_encoder(addr, bitrate, audio_key).await?;
                     Ok(None)
                 }
                 TargetId::Tcp(device_id) => {
