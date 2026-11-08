@@ -10,10 +10,6 @@ homepage.workspace = true
 keywords.workspace = true
 categories.workspace = true
 
-[package.metadata.dist]
-# Files are at the crate root so they appear beside gemacast-pc(.exe) in the archive
-# build.rs creates placeholder stubs for cross-platform filenames so cargo-dist doesn't fail
-
 [build-dependencies]
 embed-manifest = "1"
 tauri-winres = "0.3.6"
