@@ -30,7 +30,6 @@ pub async fn connect_to_streamer(
         exclusive_mode,
     );
     let mode_str = match mode {
-        gemacast_core::domain::types::ConnectionMode::Adb => "adb",
         gemacast_core::domain::types::ConnectionMode::Usb => "usb",
         gemacast_core::domain::types::ConnectionMode::Wifi => "wifi",
     };
