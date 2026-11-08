@@ -565,7 +565,6 @@ impl EngineReady {
             engine_shutdown_tx,
         );
 
-        crate::tasks::updater::spawn_update_checker(&mut set, self.tray.clone());
 
         loop {
             tokio::select! {
