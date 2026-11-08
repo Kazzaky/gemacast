@@ -261,9 +261,9 @@ describe('disconnect', () => {
 });
 
 describe('reconnectOnAppOpen', () => {
-  const ALL_MODES = { wifi: true, usb: true, adb: true };
+  const ALL_MODES = { wifi: true, usb: true };
 
-  function mockBridge(modes: { wifi: boolean; usb: boolean; adb: boolean }) {
+  function mockBridge(modes: { wifi: boolean; usb: boolean }) {
     setupInvokeMock({
       get_connection_status: modes,
       connect_to_streamer: undefined,
@@ -310,7 +310,7 @@ describe('reconnectOnAppOpen', () => {
     mockBridge(ALL_MODES);
     await connectThenDisconnect(streamer);
 
-    mockBridge({ wifi: false, usb: true, adb: true });
+    mockBridge({ wifi: false, usb: true });
     await reconnectOnAppOpen();
 
     expect(invokeCalls.some((c) => c.cmd === 'connect_to_streamer')).toBe(false);
@@ -320,7 +320,7 @@ describe('reconnectOnAppOpen', () => {
   it('switches to the saved mode instead of connecting on the wrong one', async () => {
     const streamer = makeDiscoveredStreamer({ deviceId: 'pc-1' });
     mockBridge(ALL_MODES);
-    useAppStore.getState().updateSettings({ mode: ConnectionMode.Adb });
+    useAppStore.getState().updateSettings({ mode: ConnectionMode.Usb });
     await connectThenDisconnect(streamer);
     useAppStore.getState().updateSettings({ mode: ConnectionMode.Wifi });
 
