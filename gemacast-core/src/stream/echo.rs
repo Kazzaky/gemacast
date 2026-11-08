@@ -52,7 +52,10 @@ impl EchoPacketCipher {
         let mut packet = Vec::with_capacity(ECHO_PACKET_LEN);
         packet.extend_from_slice(&MAGIC);
         packet.extend_from_slice(&sequence.to_be_bytes());
-        let header = packet.as_slice();
+        let header: [u8; HEADER_LEN] = packet
+            .as_slice()
+            .try_into()
+            .expect("echo header has a fixed length");
 
         packet.extend_from_slice(&Self::now_micros().to_be_bytes());
         let nonce = Self::nonce(sequence);
@@ -60,7 +63,7 @@ impl EchoPacketCipher {
             .key
             .seal_in_place_separate_tag(
                 Nonce::assume_unique_for_key(nonce),
-                Aad::from(header),
+                Aad::from(&header[..]),
                 &mut packet[HEADER_LEN..],
             )
             .map_err(|_| "echo packet encryption failed".to_string())?;
