@@ -2,6 +2,7 @@ use std::net::SocketAddr;
 use std::sync::Arc;
 use std::sync::atomic::{AtomicBool, Ordering};
 
+use gemacast_core::audio::AudioSessionKey;
 use gemacast_core::control::messages::ControlMessage;
 use gemacast_core::control::types::PresenceResponse;
 use gemacast_core::control::{ControlCommand, SessionAuthorizer};
@@ -259,7 +260,8 @@ impl ControlDispatcher {
                     }
                 };
                 let generation = pending_session.generation().0;
-                let result = register_device(
+                let audio_key = pending_session.audio_key();
+                let result = register_device_with_audio_key(
                     self.registry.as_ref(),
                     self.tray.as_ref(),
                     self.audio.as_ref(),
@@ -271,6 +273,7 @@ impl ControlDispatcher {
                     None,
                     source,
                     bitrate,
+                    audio_key,
                 )
                 .await;
 
@@ -436,7 +439,7 @@ pub fn spawn_control_dispatcher(
 }
 
 #[allow(clippy::too_many_arguments)]
-pub async fn register_device(
+pub async fn register_device_with_audio_key(
     registry: &dyn DeviceRegistry,
     tray: &dyn TrayNotifier,
     audio: &dyn AudioController,
@@ -448,6 +451,7 @@ pub async fn register_device(
     transport: Option<gemacast_core::domain::types::TransportType>,
     source: Option<gemacast_core::domain::types::AudioSource>,
     bitrate: Option<i32>,
+    audio_key: AudioSessionKey,
 ) -> Result<(), String> {
     tracing::debug!(
         "Registering device: {} ({:?}) at {}",
@@ -469,6 +473,7 @@ pub async fn register_device(
             effective_addr,
             source,
             bitrate,
+            audio_key,
         )
         .await
     {
@@ -512,6 +517,28 @@ pub async fn unregister_device(
             .await;
     }
     audio.unsubscribe(&device_id).await
+}
+
+#[cfg(test)]
+#[allow(clippy::too_many_arguments)]
+pub async fn register_device(
+    registry: &dyn DeviceRegistry,
+    tray: &dyn TrayNotifier,
+    audio: &dyn AudioController,
+    device_id: DeviceId,
+    generation: u64,
+    device_name: String,
+    audio_addr: SocketAddr,
+    remote_addr: SocketAddr,
+    transport: Option<gemacast_core::domain::types::TransportType>,
+    source: Option<gemacast_core::domain::types::AudioSource>,
+    bitrate: Option<i32>,
+) -> Result<(), String> {
+    let test_key = AudioSessionKey::from_session_token(&"11".repeat(32)).unwrap();
+    register_device_with_audio_key(
+        registry, tray, audio, device_id, generation, device_name, audio_addr,
+        remote_addr, transport, source, bitrate, test_key,
+    ).await
 }
 
 fn read_pc_output_volume() -> Option<f32> {
