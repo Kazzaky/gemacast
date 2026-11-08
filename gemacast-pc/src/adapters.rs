@@ -10,5 +10,5 @@ pub mod device;
 pub mod tray;
 
 pub use audio::ChannelAudioController;
-pub use device::MultiTransportDeviceNotifier;
+pub use device::WsDeviceNotifier;
 pub use tray::EventLoopTrayNotifier;
