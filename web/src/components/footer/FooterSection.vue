@@ -97,7 +97,7 @@ const pageLinks: FooterLink[] = [
           <span class="font-mono text-center text-accent"> Built by Echa Apriliyanto. </span>
           <div class="flex flex-row gap-x-1 items-center">
             <ScaleIcon class="size-4"/>
-            <a href="https://github.com/apirJS/gemacast?tab=GPL-3.0-1-ov-file" target="_blank">GPL 3.0</a>
+            <a href="https://github.com/Kazzaky/gemacast?tab=GPL-3.0-1-ov-file" target="_blank">GPL 3.0</a>
           </div>
         </div>
         <div class="flex items-center gap-x-2">
