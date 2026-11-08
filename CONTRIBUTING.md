@@ -23,7 +23,7 @@ Frontend commands are defined in each application's `package.json`.
 ## Setup
 
 ```bash
-git clone https://github.com/apirJS/gemacast.git
+git clone https://github.com/Kazzaky/gemacast.git
 cd gemacast
 ```
 
@@ -188,7 +188,7 @@ PC panic reports overwrite `crash.log` in the configuration directory:
 
 ## Reporting bugs
 
-Include these fields in an [issue](https://github.com/apirJS/gemacast/issues):
+Include these fields in an [issue](https://github.com/Kazzaky/gemacast/issues):
 
 - PC and Android app versions or source commit.
 - PC OS and audio device; phone model and Android version.
