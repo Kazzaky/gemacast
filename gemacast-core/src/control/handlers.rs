@@ -87,14 +87,29 @@ fn unauthorized() -> Response {
 
 pub(crate) async fn handle_probe<P: ProcessLister + 'static>(
     State(state): State<ControlServerState<P>>,
+    headers: HeaderMap,
     Json(req): Json<ProbeReq>,
 ) -> Json<PresenceResponse> {
     tracing::info!("HTTP POST /probe from {:?}", req.device_id);
+
+    // Unauthenticated probes may discover only public streamer presence. The
+    // device registration state and PC output volume are session information.
+    let Some(device_id) = req.device_id.as_ref() else {
+        let mut presence = state.build_presence();
+        presence.pc_certificate_fingerprint = Some(state.pc_certificate_fingerprint.clone());
+        return Json(presence);
+    };
+    if state.authenticate_device(&headers, device_id).is_none() {
+        let mut presence = state.build_presence();
+        presence.pc_certificate_fingerprint = Some(state.pc_certificate_fingerprint.clone());
+        return Json(presence);
+    }
+
     let (response_tx, response_rx) = oneshot::channel();
     let _ = state
         .command_tx
         .send(ControlCommand::Probe {
-            device_id: req.device_id,
+            device_id: Some(device_id.clone()),
             response_tx,
         })
         .await;
