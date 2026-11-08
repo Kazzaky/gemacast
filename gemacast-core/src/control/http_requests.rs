@@ -91,12 +91,14 @@ impl HttpControlClient {
     ) -> Result<PresenceResponse, GemaCastError> {
         let credential = self.credential_for(device_id.as_ref());
         let client = self.client_for(credential.as_ref())?;
-        let response = client
-            .post(format!("{}/probe", self.base_url))
-            .json(&ProbeReq { device_id })
-            .send()
-            .await
-            .map_err(request_error)?;
+        let response = Self::authorize(
+            client.post(format!("{}/probe", self.base_url)),
+            credential.as_ref(),
+        )
+        .json(&ProbeReq { device_id })
+        .send()
+        .await
+        .map_err(request_error)?;
         let observed_fingerprint = response_certificate_fingerprint(&response)
             .map_err(|reason| ControlError::Rejected { reason })?;
         let presence = Self::ensure_success(response)
