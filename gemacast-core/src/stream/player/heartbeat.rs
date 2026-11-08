@@ -31,10 +31,9 @@ impl KeepaliveHeartbeat {
 
     /// Spawns the phone's 500 ms keepalive thread.
     ///
-    /// The packet doubles as a UDP echo ping: it carries a timestamp the PC
-    /// bounces back verbatim, letting the receive loop measure raw wire RTT (see
-    /// [`crate::stream::echo`]). Its keepalive role is unchanged — a 10-byte ping
-    /// keeps the NAT mapping and socket alive exactly as the old 1-byte packet did.
+    /// The packet doubles as an authenticated, encrypted UDP echo ping. The PC
+    /// verifies it before reflecting it, and the receive loop verifies the reply
+    /// before reporting raw wire RTT (see [`crate::stream::echo`]).
     pub(crate) fn spawn(self) -> std::thread::JoinHandle<()> {
         std::thread::spawn(move || {
             #[cfg(target_os = "android")]
