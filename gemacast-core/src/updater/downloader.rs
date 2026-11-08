@@ -55,13 +55,15 @@ impl Default for UpdateDownloader {
         let http_client = reqwest::Client::builder()
             .redirect(reqwest::redirect::Policy::custom(|attempt| {
                 if attempt.previous().len() >= 5 {
-                    return attempt.error("too many update redirects");
+                    return attempt.error(std::io::Error::other("too many update redirects"));
                 }
                 let url = attempt.url();
                 if approved_redirect_url(url) {
                     attempt.follow()
                 } else {
-                    attempt.error("update redirect must remain HTTPS on an approved GitHub host")
+                    attempt.error(std::io::Error::other(
+                        "update redirect must remain HTTPS on an approved GitHub host",
+                    ))
                 }
             }))
             .build()
