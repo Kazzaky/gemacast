@@ -721,6 +721,7 @@ mod tests {
             target_ip: Some("192.168.1.5".parse().unwrap()),
             device_id: "phone-1".into(),
             network_link: gemacast_core::domain::types::NetworkLink::Unknown,
+            audio_key: AudioSessionKey::from_session_token(&"77".repeat(32)).unwrap(),
         }));
         let client = Arc::new(MockStreamerControlClient::new());
         let platform = Arc::new(MockPlatformService::new());
