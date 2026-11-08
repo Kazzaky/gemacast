@@ -1,3 +1,4 @@
+use crate::audio::AudioSessionKey;
 use crate::domain::types::{AudioSource, DeviceId, TargetId};
 use std::net::SocketAddr;
 
@@ -7,6 +8,7 @@ pub(crate) struct StreamSession {
     pub(crate) target_addr: Option<SocketAddr>,
     pub(crate) source: AudioSource,
     pub(crate) bitrate: Option<i32>,
+    pub(crate) audio_key: AudioSessionKey,
 }
 
 impl StreamSession {
@@ -14,11 +16,13 @@ impl StreamSession {
         target_addr: Option<SocketAddr>,
         source: AudioSource,
         bitrate: Option<i32>,
+        audio_key: AudioSessionKey,
     ) -> Self {
         Self {
             target_addr,
             source,
             bitrate,
+            audio_key,
         }
     }
 
