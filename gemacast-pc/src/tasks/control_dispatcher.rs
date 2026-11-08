@@ -460,11 +460,9 @@ pub async fn register_device_with_audio_key(
         audio_addr
     );
 
-    let effective_addr = if remote_addr.ip().is_loopback() {
-        None
-    } else {
-        Some(audio_addr)
-    };
+    // Wi-Fi and USB tethering both use the encrypted UDP audio transport.
+    // Loopback is a valid UDP address in local tests; it is not a TCP/ADB fallback.
+    let effective_addr = Some(audio_addr);
 
     if let Err(error) = audio
         .subscribe(
@@ -679,7 +677,7 @@ mod tests {
     }
 
     #[tokio::test]
-    async fn register_should_use_none_addr_for_loopback() {
+    async fn register_should_use_udp_addr_for_loopback() {
         let registry = MockDeviceRegistry::new();
         let tray = MockTrayNotifier::new();
         let audio = MockAudioController::new();
@@ -688,9 +686,9 @@ mod tests {
             &registry,
             &tray,
             &audio,
-            DeviceId("adb-dev".into()),
+            DeviceId("loopback-dev".into()),
             1,
-            "ADB Phone".into(),
+            "Loopback Phone".into(),
             make_addr("127.0.0.1:9000"),
             make_addr("127.0.0.1:23559"),
             None,
@@ -704,9 +702,9 @@ mod tests {
         assert!(matches!(
             &audio_calls[0],
             AudioCall::Subscribe {
-                target_addr: None,
+                target_addr: Some(addr),
                 ..
-            }
+            } if *addr == make_addr("127.0.0.1:9000")
         ));
     }
 
