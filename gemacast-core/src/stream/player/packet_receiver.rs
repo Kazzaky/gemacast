@@ -5,6 +5,7 @@ use super::receive_diagnostics::ReceiveDiagnostics;
 use super::source_idle::SourceIdleDetector;
 use crate::audio::pcm_datagram::PcmDatagram;
 use crate::audio::encryption::{AudioPacketCipher, AudioReplayWindow, AUDIO_TAG_LEN};
+use crate::stream::echo::{EchoPacketCipher, EchoReplayWindow};
 use crate::audio::AudioSessionKey;
 use crate::audio::{MAX_OPUS_PACKET_SIZE, SEQ_NUM_SIZE};
 use crate::jitter::RawPacket;
@@ -52,6 +53,8 @@ impl PacketReceiver {
             let mut pcm_assembly = PcmAssembly::new();
             let mut diagnostics = ReceiveDiagnostics::new(std::time::Instant::now());
             let cipher = AudioPacketCipher::new(&audio_key);
+            let echo_cipher = EchoPacketCipher::new(&audio_key);
+            let mut echo_replay = EchoReplayWindow::default();
             let mut replay_window = AudioReplayWindow::default();
 
             while active.load(Ordering::Relaxed) {
@@ -78,11 +81,13 @@ impl PacketReceiver {
                         // bookkeeping below. An echo is liveness, not audio, so it
                         // must not seed the streamer IP, reset the audio-arrival
                         // timeout, or trip the "first packet" log.
-                        if crate::stream::echo::EchoPacket::matches(&recv_buff, r.0) {
-                            if let Some(ref tx) = rtt_tx {
-                                let _ = tx.try_send(
-                                    crate::stream::echo::EchoPacket::round_trip_ms(&recv_buff),
-                                );
+                        if EchoPacketCipher::matches(&recv_buff, r.0) {
+                            if let Ok((sequence, sent_micros)) = echo_cipher.open(&recv_buff[..r.0])
+                                && echo_replay.accept(sequence)
+                            {
+                                if let Some(ref tx) = rtt_tx {
+                                    let _ = tx.try_send(EchoPacketCipher::round_trip_ms(sent_micros));
+                                }
                             }
                             continue;
                         }
@@ -438,7 +443,9 @@ mod tests {
         let (network_dropped_tx, _network_dropped_rx) = mpsc::channel(1);
         let (rtt_tx, mut rtt_rx) = mpsc::channel::<f32>(4);
 
-        let ping = crate::stream::echo::EchoPacket::build().to_vec();
+        let ping = crate::stream::echo::EchoPacketCipher::new(&test_audio_key())
+            .build()
+            .unwrap();
 
         let handle = PacketReceiver::spawn(
             MockTransport {
