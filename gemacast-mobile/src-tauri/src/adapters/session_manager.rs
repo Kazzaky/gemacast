@@ -2,6 +2,7 @@ use crate::traits::{
     FrontendNotifier, SessionInfo, SessionManager, SessionParams, StreamerControlClientFactory,
 };
 use async_trait::async_trait;
+use gemacast_core::audio::AudioSessionKey;
 use gemacast_core::domain::types::{ConnectionMode, DeviceId, JitterConfig};
 use gemacast_core::stream::player::PlaybackControl;
 use std::sync::atomic::{AtomicU32, AtomicU64, Ordering};
@@ -25,6 +26,7 @@ struct ActiveSession {
     target_ip: Option<std::net::IpAddr>,
     device_id: String,
     network_link: gemacast_core::domain::types::NetworkLink,
+    audio_key: AudioSessionKey,
 }
 
 /// Manages playback sessions and WebSocket client tasks using Tokio primitives.
@@ -61,6 +63,7 @@ impl SessionManager for TokioSessionManager {
                 exclusive_mode: params.exclusive_mode,
                 target_ip: params.target_ip,
                 network_link: params.network_link,
+                audio_key: params.audio_key,
             },
         )?;
 
@@ -93,6 +96,7 @@ impl SessionManager for TokioSessionManager {
             target_ip: params.target_ip,
             device_id: params.device_id,
             network_link: params.network_link,
+            audio_key: params.audio_key,
         });
 
         Ok(())
@@ -185,6 +189,7 @@ impl SessionManager for TokioSessionManager {
             target_ip: s.target_ip,
             device_id: s.device_id.clone(),
             network_link: s.network_link,
+            audio_key: s.audio_key,
         })
     }
 
