@@ -281,7 +281,7 @@ jobs:
           # Write and read notes from a file to avoid quoting breaking things
           echo "$ANNOUNCEMENT_BODY" > $RUNNER_TEMP/notes.txt
 
-          # Check if the release already exists (e.g., created by release-please)
+          # Check whether a release already exists for the selected manual tag
           if ! gh release view "${{ needs.plan.outputs.tag }}" >/dev/null 2>&1; then
             echo "Release not found. Creating a new release..."
             gh release create "${{ needs.plan.outputs.tag }}" $PRERELEASE_FLAG --title "$ANNOUNCEMENT_TITLE" --notes-file $RUNNER_TEMP/notes.txt
