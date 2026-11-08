@@ -13,7 +13,7 @@ pub(crate) struct AudioTransportFactory;
 impl AudioTransportFactory {
     pub(crate) fn create(
         target_ip: Option<std::net::IpAddr>,
-    ) -> Result<(UdpTransport, std::net::UdpSocket), NetworkError> {
+    ) -> Result<(UdpTransport, Option<std::net::UdpSocket>), NetworkError> {
         let addr =
             std::net::SocketAddr::V4(SocketAddrV4::new(Ipv4Addr::UNSPECIFIED, Ports::AUDIO_UDP));
         let socket = socket2::Socket::new(
@@ -79,6 +79,6 @@ impl AudioTransportFactory {
             .try_clone()
             .map_err(NetworkError::SocketCloneFailed)?;
 
-        Ok((UdpTransport { socket: std_socket }, heartbeat_socket))
+        Ok((UdpTransport { socket: std_socket }, Some(heartbeat_socket)))
     }
 }
