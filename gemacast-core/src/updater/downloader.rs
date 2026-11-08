@@ -10,6 +10,17 @@ use crate::domain::error::UpdaterError;
 
 const RELEASE_PATH_PREFIX: &str = "/Kazzaky/gemacast/releases/download/";
 
+fn approved_redirect_url(url: &reqwest::Url) -> bool {
+    url.scheme() == "https"
+        && url.port_or_known_default() == Some(443)
+        && url.username().is_empty()
+        && url.password().is_none()
+        && matches!(
+            url.host_str(),
+            Some("github.com" | "release-assets.githubusercontent.com")
+        )
+}
+
 fn validate_artifact_url(raw: &str) -> Result<(), UpdaterError> {
     let url = reqwest::Url::parse(raw).map_err(|_| UpdaterError::InvalidArtifactUrl {
         reason: "malformed URL",
@@ -44,12 +55,10 @@ impl Default for UpdateDownloader {
         let http_client = reqwest::Client::builder()
             .redirect(reqwest::redirect::Policy::custom(|attempt| {
                 let url = attempt.url();
-                if url.scheme() != "https" {
-                    return attempt.error("update redirects must remain HTTPS");
-                }
-                match url.host_str() {
-                    Some("github.com" | "release-assets.githubusercontent.com") => attempt.follow(),
-                    _ => attempt.error("update redirect host is not approved"),
+                if approved_redirect_url(url) {
+                    attempt.follow()
+                } else {
+                    attempt.error("update redirect must remain HTTPS on an approved GitHub host")
                 }
             }))
             .build()
@@ -241,6 +250,24 @@ mod url_tests {
         assert!(validate_artifact_url(
             "http://github.com/Kazzaky/gemacast/releases/download/v0.6.0/app.apk"
         ).is_err());
+    }
+
+    #[test]
+    fn accepts_only_https_github_release_redirect_hosts() {
+        for url in [
+            "https://github.com/Kazzaky/gemacast/releases/download/v0.6.0/app.apk",
+            "https://release-assets.githubusercontent.com/github-production-release-asset/123/app.apk",
+        ] {
+            assert!(approved_redirect_url(&reqwest::Url::parse(url).unwrap()));
+        }
+        for url in [
+            "http://release-assets.githubusercontent.com/app.apk",
+            "https://example.com/app.apk",
+            "https://user@github.com/app.apk",
+            "https://github.com:444/app.apk",
+        ] {
+            assert!(!approved_redirect_url(&reqwest::Url::parse(url).unwrap()));
+        }
     }
 
     #[test]
