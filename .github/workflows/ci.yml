@@ -21,21 +21,19 @@ jobs:
           token: ${{ secrets.GITHUB_TOKEN }}
           # Transitive deps we can't fix:
           # RUSTSEC-2021-0119: nix (unmaintained), via cpal
-          # RUSTSEC-2026-0194, -0195: (existing ignores)
           # RUSTSEC-2020-0168: mach (unmaintained), via cpal/coreaudio
           # RUSTSEC-2024-0436: paste (archived), via rav1e
           # RUSTSEC-2024-0370: proc-macro-error (unmaintained), via tauri
           # RUSTSEC-2025-0075,-0080,-0081,-0098,-0100: unic-* (unmaintained), via tauri
           # RUSTSEC-2024-0429: glib VariantStrIter unsoundness, via gtk-rs
           ignore: >-
-            RUSTSEC-2021-0119,RUSTSEC-2026-0194,RUSTSEC-2026-0195,
+            RUSTSEC-2021-0119,
             RUSTSEC-2020-0168,RUSTSEC-2024-0436,RUSTSEC-2024-0370,
             RUSTSEC-2025-0075,RUSTSEC-2025-0080,RUSTSEC-2025-0081,
             RUSTSEC-2025-0098,RUSTSEC-2025-0100,RUSTSEC-2024-0429
 
   frontend:
     name: Frontend Checks (TypeScript / Tauri)
-    if: ${{ github.event_name != 'pull_request' || github.event.pull_request.user.login != 'apir-s-semantic-release-bot[bot]' }}
     runs-on: ubuntu-22.04
     steps:
       - uses: actions/checkout@v6
@@ -240,15 +238,10 @@ jobs:
     steps:
       - name: Require all CI jobs to pass
         env:
-          RELEASE_BOT_PR: ${{ github.event_name == 'pull_request' && github.event.pull_request.user.login == 'apir-s-semantic-release-bot[bot]' }}
           AUDIT_RESULT: ${{ needs.audit.result }}
           FRONTEND_RESULT: ${{ needs.frontend.result }}
           BACKEND_RESULT: ${{ needs.backend.result }}
         run: |
-          if [ "$RELEASE_BOT_PR" = true ]; then
-            echo "Release bot PR: validation jobs intentionally skipped."
-            exit 0
-          fi
           test "$AUDIT_RESULT" = success
           test "$FRONTEND_RESULT" = success
           test "$BACKEND_RESULT" = success
