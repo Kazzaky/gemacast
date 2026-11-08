@@ -34,6 +34,15 @@ impl AudioSessionKey {
     fn as_bytes(&self) -> &[u8; 32] {
         &self.0
     }
+
+    /// Derive a protocol-specific key using a distinct domain label.
+    /// This prevents UDP echo nonces from sharing the audio AEAD key space.
+    pub(crate) fn derive_subkey(&self, domain: &[u8]) -> [u8; 32] {
+        let mut hasher = Sha256::new();
+        hasher.update(domain);
+        hasher.update(self.as_bytes());
+        hasher.finalize().into()
+    }
 }
 
 impl fmt::Debug for AudioSessionKey {
