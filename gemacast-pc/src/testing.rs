@@ -211,6 +211,7 @@ pub mod mocks {
             target_addr: Option<SocketAddr>,
             source: Option<AudioSource>,
             bitrate: Option<i32>,
+            _audio_key: gemacast_core::audio::AudioSessionKey,
         ) -> Result<(), String> {
             self.calls.lock().unwrap().push(AudioCall::Subscribe {
                 device_id,
