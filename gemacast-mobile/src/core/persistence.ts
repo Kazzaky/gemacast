@@ -91,7 +91,7 @@ export function saveLastStreamer(streamer: DiscoveredStreamer | null) {
 export function loadLastMode(): ConnectionMode | null {
   try {
     const raw = localStorage.getItem(LS_LAST_MODE);
-    return raw === ConnectionMode.Wifi || raw === ConnectionMode.Usb || raw === ConnectionMode.Adb
+    return raw === ConnectionMode.Wifi || raw === ConnectionMode.Usb
       ? raw
       : null;
   } catch {
