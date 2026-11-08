@@ -20,15 +20,6 @@ mkdir -p "${PKG_NAME}/usr/share/icons/hicolor/256x256/apps"
 cp "${DIST_EXTRACTED}/gemacast-pc" "${PKG_NAME}/usr/bin/"
 chmod 755 "${PKG_NAME}/usr/bin/gemacast-pc"
 
-# ADB
-if [ -f "${DIST_EXTRACTED}/adb" ]; then
-  cp "${DIST_EXTRACTED}/adb" "${PKG_NAME}/usr/lib/gemacast/"
-  chmod 755 "${PKG_NAME}/usr/lib/gemacast/adb"
-else
-  echo "::error::ADB binary not found in extracted archive — .deb would be incomplete"
-  exit 1
-fi
-
 # Desktop entry & icon
 cp linux/gemacast-pc.desktop "${PKG_NAME}/usr/share/applications/"
 cp linux/gemacast-pc.png "${PKG_NAME}/usr/share/icons/hicolor/256x256/apps/"
