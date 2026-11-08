@@ -46,7 +46,7 @@ jobs:
     outputs:
       val: ${{ steps.plan.outputs.manifest }}
       tag: ${{ inputs.release_tag }}
-      tag-flag: ${{ format('--tag={0}', github.ref_name) }}
+      tag-flag: ${{ format('--tag={0}', inputs.release_tag) }}
       commit: ${{ steps.source.outputs.sha }}
       publishing: "true"
     env:
