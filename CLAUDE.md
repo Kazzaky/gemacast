@@ -47,8 +47,6 @@ Repository instructions for changes to Gemacast. Architecture is documented in
   the request's `device_id`. `/sources` and `/processes` use `authenticate_token`.
 - Session tokens remain memory-only and rotate on connection. Preserve
   `SessionGeneration` checks during request, socket, and WebSocket cleanup.
-- ADB forwards control, discovery, and audio. Its audio handshake validates
-  device ID, token, and generation; loopback alone does not authorize control.
 - Persist trust only after approval. A changed PC certificate requires the user
   to forget that identity; a changed phone key requires re-pair approval.
 - Changes to dispatcher error text must update `connect_error_code` mappings
@@ -78,8 +76,8 @@ Repository instructions for changes to Gemacast. Architecture is documented in
 - Crossfades progress monotonically from outgoing to incoming audio.
 - Preserve diagnostic counter semantics. Document the measurement supporting
   tuning constants and change one audio behavior per measurement round.
-- Latency, jitter, and concealment changes require real-device captures on the
-  affected transports in addition to unit tests.
+- Latency, jitter, and concealment changes require real-device captures over
+  Wi-Fi and USB tethering in addition to unit tests.
 
 ## Android
 
@@ -100,8 +98,8 @@ Repository instructions for changes to Gemacast. Architecture is documented in
 
 - Run focused regression tests, the owning suite, and affected native-target
   checks from [CONTRIBUTING.md](CONTRIBUTING.md#validate).
-- Pairing/session changes require LAN and ADB coverage. JNI changes require a
-  release APK; JVM tests do not exercise R8.
+- Pairing/session changes require Wi-Fi and USB-tethering coverage. JNI changes
+  require a release APK; JVM tests do not exercise R8.
 - Inject time in timing tests. Tests sharing PipeWire use `#[serial(pipewire)]`.
   Shared mocks belong in each crate's `testing.rs` under `#[cfg(test)]`.
 - Check regressions against the prior behavior. Rate-limit tests must also
