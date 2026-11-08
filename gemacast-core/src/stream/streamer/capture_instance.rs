@@ -21,7 +21,7 @@ pub(crate) struct PerTargetEncoder {
     pub(crate) join_handle: tokio::task::JoinHandle<()>,
 }
 
-/// Tracks a TCP/ADB encoder that publishes to the broadcast channel
+/// Tracks a TCP encoder that publishes to the broadcast channel
 /// instead of sending UDP packets.
 pub(crate) struct TcpEncoder {
     pub(crate) bitrate: AudioBitrate,
@@ -38,7 +38,7 @@ pub(crate) struct AudioCaptureInstance {
     next_encoder_generation: u64,
     /// Per-target encoders keyed by socket address (for UDP/WiFi targets).
     pub(crate) per_target_encoders: HashMap<SocketAddr, PerTargetEncoder>,
-    /// TCP/ADB encoders keyed by DeviceId.
+    /// TCP encoders keyed by DeviceId.
     pub(crate) tcp_encoders: HashMap<crate::domain::types::DeviceId, TcpEncoder>,
     /// Broadcast channel for raw PCM frames from the capture thread.
     pcm_broadcast_tx: broadcast::Sender<Arc<CapturedFrame>>,
@@ -427,7 +427,7 @@ impl CaptureDiagnostics {
 
 impl TcpEncoder {
     /// TCP encoder loop: receives raw PCM frames, encodes at the configured
-    /// bitrate, and publishes to the broadcast channel for TCP/ADB consumers.
+    /// bitrate, and publishes to the broadcast channel for TCP consumers.
     async fn run(
         mut pcm_rx: broadcast::Receiver<Arc<CapturedFrame>>,
         mut encoder: Option<opus::Encoder>,
