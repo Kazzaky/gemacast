@@ -2,7 +2,7 @@
 
 # <img src="assets/logo_transparent.svg" height="56" alt="Gemacast logo" valign="middle" /> Gemacast
 
-[![Release](https://img.shields.io/github/v/release/apirJS/gemacast?label=release)](https://github.com/Kazzaky/gemacast/releases/latest)
+[![Release](https://img.shields.io/github/v/release/Kazzaky/gemacast?label=release)](https://github.com/Kazzaky/gemacast/releases/latest)
 [![License](https://img.shields.io/github/license/apirJS/gemacast)](LICENSE)
 
 PC-to-Android audio streaming over Wi-Fi or USB tethering.
