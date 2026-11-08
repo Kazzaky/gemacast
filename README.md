@@ -3,11 +3,11 @@
 # <img src="assets/logo_transparent.svg" height="56" alt="Gemacast logo" valign="middle" /> Gemacast
 
 [![Release](https://img.shields.io/github/v/release/Kazzaky/gemacast?label=release)](https://github.com/Kazzaky/gemacast/releases/latest)
-[![License](https://img.shields.io/github/license/apirJS/gemacast)](LICENSE)
+[![License](https://img.shields.io/github/license/Kazzaky/gemacast)](LICENSE)
 
 PC-to-Android audio streaming over Wi-Fi or USB tethering.
 
-[Download](https://github.com/apirJS/gemacast/releases/latest) ·
+[Download](https://github.com/Kazzaky/gemacast/releases/latest) ·
 [Architecture](ARCHITECTURE.md) · [Contributing](CONTRIBUTING.md) ·
 [Changelog](CHANGELOG.md)
 
@@ -32,7 +32,7 @@ ScreenCaptureKit requires Screen Recording permission. iOS is not implemented.
 
 ## Installation
 
-Packages are available on the [release page](https://github.com/apirJS/gemacast/releases/latest).
+Packages are available on the [release page](https://github.com/Kazzaky/gemacast/releases/latest).
 
 | Platform | Package |
 | --- | --- |
