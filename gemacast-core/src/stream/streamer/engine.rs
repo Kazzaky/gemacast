@@ -638,7 +638,7 @@ mod tests {
         tx.send(AudioStreamCommand::Subscribe {
             device_id: device_id.clone(),
             generation: 1,
-            target_addr: None,
+            target_addr: Some("127.0.0.1:23556".parse().unwrap()),
             source: Some(AudioSource::Desktop),
             bitrate: None,
             audio_key: test_audio_key(),
