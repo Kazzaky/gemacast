@@ -106,8 +106,7 @@ export class ConnectionController {
         transport,
       };
 
-      const isAdbMode = connectionMode === ConnectionMode.Adb;
-      await connectWithRetry(args, isAdbMode ? 4 : 0, isAdbMode ? 500 : 300);
+      await connectWithRetry(args, 0, 300);
 
       tauriBridge
         .establishWebsocket({ streamerIp: ip, deviceId: state.deviceInfo.deviceId })
