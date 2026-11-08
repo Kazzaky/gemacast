@@ -14,15 +14,14 @@ beforeEach(() => {
 });
 
 describe('ModeSelector', () => {
-  it('renders WiFi / USB / ADB options', () => {
+  it('renders WiFi / USB options', () => {
     render(<ModeSelector />);
     expect(screen.getByText('WiFi')).toBeTruthy();
     expect(screen.getByText('USB')).toBeTruthy();
-    expect(screen.getByText('ADB')).toBeTruthy();
   });
 
   it('disables USB when modes.usb is false', () => {
-    useAppStore.getState().setAvailableModes({ wifi: true, usb: false, adb: false });
+    useAppStore.getState().setAvailableModes({ wifi: true, usb: false });
     render(<ModeSelector />);
     const usbInput = screen.getByLabelText('USB') as HTMLInputElement;
     expect(usbInput.disabled).toBe(true);
