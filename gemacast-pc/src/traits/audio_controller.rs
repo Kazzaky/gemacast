@@ -1,4 +1,5 @@
 use async_trait::async_trait;
+use gemacast_core::audio::AudioSessionKey;
 use gemacast_core::domain::types::{AudioSource, DeviceId};
 use std::net::SocketAddr;
 
@@ -18,6 +19,7 @@ pub trait AudioController: Send + Sync {
         target_addr: Option<SocketAddr>,
         source: Option<AudioSource>,
         bitrate: Option<i32>,
+        audio_key: AudioSessionKey,
     ) -> Result<(), String>;
 
     /// Stop streaming audio to a device.
