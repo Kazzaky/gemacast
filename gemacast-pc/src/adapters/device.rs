@@ -17,18 +17,18 @@ pub type WsConnectionMap = Arc<Mutex<HashMap<DeviceId, mpsc::Sender<WsEvent>>>>;
 ///
 /// Uses the authenticated WSS control channel.
 ///
-pub struct MultiTransportDeviceNotifier {
+pub struct WsDeviceNotifier {
     ws_connections: WsConnectionMap,
 }
 
-impl MultiTransportDeviceNotifier {
+impl WsDeviceNotifier {
     pub fn new(ws_connections: WsConnectionMap) -> Self {
         Self { ws_connections }
     }
 }
 
 #[async_trait]
-impl DeviceNotifier for MultiTransportDeviceNotifier {
+impl DeviceNotifier for WsDeviceNotifier {
     async fn notify_disconnect(&self, device_id: &DeviceId, addr: Option<SocketAddr>) {
         // Try WSS first.
         let ws_ok = ControlEventBus::send(&self.ws_connections, device_id, WsEvent::Disconnect)
