@@ -1,7 +1,7 @@
 //! Port: Audio packet transport abstraction.
 //!
 //! Defines the [`AudioPacketTransport`] trait that decouples the player's
-//! packet receive loop from the concrete transport mechanism (UDP vs TCP).
+//! packet receive loop from the concrete UDP transport.
 //!
 //! # Strategy Pattern
 //!
@@ -11,7 +11,7 @@
 //! | Strategy | Transport | Use Case |
 //! |---|---|---|
 //! | [`UdpTransport`](crate::adapters::transport::UdpTransport) | UDP socket | WiFi streaming |
-//! | [`TcpTransport`](crate::adapters::transport::TcpTransport) | TCP stream | ADB/USB streaming |
+//! | [`UdpTransport`](crate::adapters::transport::UdpTransport) | UDP socket | Wi-Fi and USB-tethered streaming |
 //! | `MockTransport` | In-memory | Tests |
 
 use std::net::SocketAddr;
