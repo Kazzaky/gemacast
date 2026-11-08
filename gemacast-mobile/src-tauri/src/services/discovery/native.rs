@@ -2,8 +2,8 @@
 
 /// Calls the Android Activity's `getTransportType()` method via JNI.
 ///
-/// Returns a pipe-delimited string like `"WIFI|ADB_ON"` indicating the
-/// active network transports and ADB status.
+/// Returns a pipe-delimited string like `"WIFI:5180|HOTSPOT"` indicating the
+/// active network transports and tethering state.
 pub fn call_native_transport_check(app: &tauri::AppHandle) -> Result<String, String> {
     use std::sync::mpsc;
     use tauri::Manager;
