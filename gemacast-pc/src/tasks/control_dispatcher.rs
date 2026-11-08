@@ -447,7 +447,7 @@ pub async fn register_device_with_audio_key(
     generation: u64,
     device_name: String,
     audio_addr: SocketAddr,
-    remote_addr: SocketAddr,
+    _remote_addr: SocketAddr,
     transport: Option<gemacast_core::domain::types::TransportType>,
     source: Option<gemacast_core::domain::types::AudioSource>,
     bitrate: Option<i32>,
