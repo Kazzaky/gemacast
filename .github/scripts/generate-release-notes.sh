@@ -10,7 +10,7 @@ FPR="${SIGNING_KEY_FINGERPRINT:?SIGNING_KEY_FINGERPRINT is required}"
 VERSION="${TAG#v}"
 BASE_URL="https://github.com/${REPO}/releases/download/${TAG}"
 
-# Extract the changelog for the current version from the release-please generated
+# Extract the changelog for the current version from the manually maintained
 # CHANGELOG.md at the repo root.
 #
 # This path is load-bearing and was wrong until v0.3.0: it pointed at
