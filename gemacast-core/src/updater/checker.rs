@@ -78,7 +78,7 @@ impl UpdateChecker {
     async fn fetch_latest_manifest(&self) -> Result<ReleaseManifest, UpdaterError> {
         let manifest_json = self.retry_policy.run(|| self.fetch_manifest_json()).await?;
 
-        ReleaseManifest::from_json(&manifest_json)
+        ReleaseManifest::from_bytes(&manifest_json)
     }
 
     async fn fetch_manifest_json(&self) -> Result<Vec<u8>, UpdaterError> {
