@@ -168,10 +168,8 @@ if (Test-Path $startMenu) {
     }
 }
 
-# Smoke test: start the app and deliberately leave it running, so the uninstall
-# below has to close it. That is the second reported bug - Restart Manager cannot
-# close a tray app or a windowless adb, so without the rescheduled terminate the
-# uninstall stops on the "files in use" dialog.
+# Smoke test: start the app and deliberately leave it running. The explicit
+# WiX CloseApplication action must terminate the tray process before file removal.
 Write-Host "`nSmoke test: starting gemacast-pc.exe..."
 $app = Start-Process -FilePath "$installDir\gemacast-pc.exe" -PassThru
 
