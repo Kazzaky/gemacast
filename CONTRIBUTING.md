@@ -49,7 +49,7 @@ Linux workspace checks also require the Tauri libraries listed in that workflow.
 
 ### Android SDK
 
-Install the Android packages listed above and `platform-tools`. Configure:
+Install the Android SDK packages listed above. USB transport uses Android USB tethering; USB debugging and ADB are not required by the app. Configure:
 
 | Variable | Value |
 | --- | --- |
@@ -57,16 +57,17 @@ Install the Android packages listed above and `platform-tools`. Configure:
 | `ANDROID_HOME` | Android SDK directory |
 | `NDK_HOME`, `ANDROID_NDK_HOME`, `ANDROID_NDK_ROOT` | SDK directory followed by `ndk/25.2.9519653` |
 
-Add SDK `platform-tools` to `PATH` and accept the SDK licenses. From the
-repository root:
+Accept the Android SDK licenses. From the repository root:
 
 ```bash
 cargo install cargo-ndk
 rustup target add aarch64-linux-android armv7-linux-androideabi i686-linux-android x86_64-linux-android
 ```
 
-ARM64-only builds require only `aarch64-linux-android`. For USB deployment, a connected phone must have USB debugging enabled and
-appear as `device` in `adb devices`.
+ARM64-only builds require only `aarch64-linux-android`. For USB transport testing,
+enable **USB tethering** in Android settings and confirm that the PC and phone
+receive addresses on the tethered network. USB debugging is not part of the
+connection protocol.
 
 ## Build
 
@@ -199,8 +200,8 @@ $env:RUST_LOG = 'gemacast_core=debug,gemacast_pc=debug'
 cargo run -p gemacast-pc
 ```
 
-PC and Android release builds compile out Rust tracing. Android diagnostics
-require a debug APK and `adb logcat`.
+PC and Android release builds compile out Rust tracing. Use a debug APK when
+collecting Android diagnostic logs; release builds intentionally omit tracing.
 
 PC panic reports overwrite `crash.log` in the configuration directory:
 
@@ -229,6 +230,15 @@ Target `main`. Include the change, test commands and results, and affected
 platforms. Protocol changes require matching PC and phone changes. Repository
 constraints are in [CLAUDE.md](CLAUDE.md).
 
-Release-please manages versions from the root `Cargo.toml`. CI runs on pull
-requests to `main` and manual dispatch; release preparation runs on pushes to
-`main`, and packaging runs for version tags.
+The CI workflow (`.github/workflows/ci.yml`) is manual-only and is not
+automatically triggered by pushes or pull requests. Run it from the GitHub
+Actions page with **Run workflow**, or use `scripts/ci-local.py` locally.
+
+The release workflow (`.github/workflows/release.yml`) is also manual-only.
+It builds and publishes an **existing version tag** supplied through
+`workflow_dispatch`; it does not create a release tag automatically. Before
+publishing, configure the repository secrets
+`ANDROID_KEYSTORE_BASE64`, `ANDROID_KEY_ALIAS`,
+`ANDROID_KEYSTORE_PASSWORD`, `ANDROID_KEY_PASSWORD`,
+`GPG_PRIVATE_KEY`, `GPG_PASSPHRASE`, and the repository variable
+`GPG_SIGNING_KEY_FINGERPRINT`.
