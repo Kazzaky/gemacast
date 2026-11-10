@@ -52,18 +52,15 @@
     <Property Id="LAUNCHAPP" Value="1" />
     <CustomAction Id="LaunchApp" Directory="INSTALLFOLDER" ExeCommand="&quot;[INSTALLFOLDER]gemacast-pc.exe&quot;" Execute="immediate" Impersonate="yes" Return="asyncNoWait" />
 
-    <!-- Kill the app before uninstallation or upgrade to prevent FilesInUse errors.
-         Order matters: gemacast-pc has to die first. Its ADB watchdog runs
-         `adb devices` every 3 seconds and that starts the server back up, so
-         killing adb first only brings it straight back. -->
+    <!-- Close the desktop process before uninstallation or upgrade so its executable
+         is not left in use while Windows Installer removes the installation folder. -->
     <util:CloseApplication Id="CloseGemacast" Target="gemacast-pc.exe" Sequence="1" CloseMessage="yes" PromptToContinue="no" RebootPrompt="no" TerminateProcess="5" />
     <util:CloseApplication Id="CloseAdb" Target="adb.exe" Sequence="2" CloseMessage="no" PromptToContinue="no" RebootPrompt="no" TerminateProcess="3" />
 
     <!-- Don't let MSI hand the close over to Restart Manager. RM runs at
          InstallValidate, before we are allowed to terminate anything, and it cannot
-         close either process anyway - the tray app ignores WM_QUERYENDSESSION and
-         adb has no window at all. It just raised MsiRMFilesInUse and then reported
-         it had failed. With RM off, the terminate below does the work instead. -->
+         close the tray application reliably. With RM off, the terminate action
+         above runs inside the installer sequence before file removal. -->
     <Property Id="MSIRESTARTMANAGERCONTROL" Value="Disable" />
 
     <!-- Forcefully delete ANY firewall rules associated with the executable on uninstall (catches Windows Defender auto-generated rules).
@@ -140,25 +137,6 @@
                                   Scope="any"
                                   Profile="all" />
         </File>
-      </Component>
-
-      <!-- ADB binaries -->
-      <Component Id="AdbExe" Guid="*">
-        <File Id="adb_exe"
-              Source="$(var.SourceDir)\adb.exe"
-              KeyPath="yes" />
-      </Component>
-
-      <Component Id="AdbWinApi" Guid="*">
-        <File Id="adbwinapi_dll"
-              Source="$(var.SourceDir)\AdbWinApi.dll"
-              KeyPath="yes" />
-      </Component>
-
-      <Component Id="AdbWinUsbApi" Guid="*">
-        <File Id="adbwinusbapi_dll"
-              Source="$(var.SourceDir)\AdbWinUsbApi.dll"
-              KeyPath="yes" />
       </Component>
 
       <!-- Clean up leftover bin/ folder from previous installations -->
@@ -251,7 +229,7 @@
 
     <Icon Id="ProductICO" SourceFile="$(var.IconDir)\Product.ico" />
     <Property Id="ARPPRODUCTICON" Value="ProductICO" />
-    <Property Id="ARPHELPLINK" Value="https://github.com/apirJS/gemacast" />
+    <Property Id="ARPHELPLINK" Value="https://github.com/Kazzaky/gemacast" />
     <Property Id="ARPURLINFOABOUT" Value="https://github.com/apirJS/gemacast" />
     <Property Id="ARPURLUPDATEINFO" Value="https://github.com/apirJS/gemacast/releases" />
     <!-- Hide Modify button — single-feature installer, nothing to modify -->
