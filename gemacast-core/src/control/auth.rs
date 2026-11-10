@@ -33,7 +33,7 @@ impl PendingSession {
     }
 }
 
-#[derive(Debug, Clone)]
+#[derive(Clone)]
 struct SessionRecord {
     token: String,
     generation: SessionGeneration,
