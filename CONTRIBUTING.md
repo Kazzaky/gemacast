@@ -108,7 +108,7 @@ Linux and macOS:
 python3 scripts/ci-local.py
 ```
 
-Add `--android` to also run the Android ARM64 Clippy check and Android JVM unit tests. The Android SDK, JDK 17, NDK 25.2.9519653, and `cargo-ndk` must already be installed.
+Add `--android` to also run the Android ARM64 Clippy check, Android JVM unit tests, and both release APK builds (universal and ARM64 split). The Android SDK platform 36, Build Tools 34.0.0, CMake 3.22.1, JDK 17, NDK 25.2.9519653, and `cargo-ndk` must already be installed.
 
 Optional switches: `--skip-audit`, `--skip-frontend`, and `--skip-rust`. They are useful for focused iterations; use the default command before committing.
 
