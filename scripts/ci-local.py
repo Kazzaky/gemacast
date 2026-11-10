@@ -113,17 +113,17 @@ def run_host_rust_tests() -> None:
         run_linux_rust_tests()
         return
 
-    run("Cargo workspace tests", ["cargo", "test", "--workspace"])
+    run("Cargo workspace tests", ["cargo", "test", "--workspace", "--locked"])
 
     volume_env: dict[str, str] = {}
     if system == "Windows":
         run(
             "Windows output-volume tests (core)",
-            ["cargo", "test", "-p", "gemacast-core", "output_volume", "--", "--nocapture"],
+            ["cargo", "test", "-p", "gemacast-core", "output_volume", "--locked", "--", "--nocapture"],
         )
         run(
             "Windows volume-watcher tests (PC)",
-            ["cargo", "test", "-p", "gemacast-pc", "volume_watcher", "--", "--nocapture"],
+            ["cargo", "test", "-p", "gemacast-pc", "volume_watcher", "--locked", "--", "--nocapture"],
         )
     elif system == "Darwin":
         osascript = shutil.which("osascript")
@@ -244,9 +244,9 @@ def run_rust_checks() -> None:
     run("Rustfmt", ["cargo", "fmt", "--check"])
     run(
         "Clippy (workspace, all targets, warnings are errors)",
-        ["cargo", "clippy", "--workspace", "--all-targets", "--", "-D", "warnings"],
+        ["cargo", "clippy", "--workspace", "--all-targets", "--locked", "--", "-D", "warnings"],
     )
-    run("Build workspace (host target)", ["cargo", "build", "--workspace"])
+    run("Build workspace (host target)", ["cargo", "build", "--workspace", "--locked"])
     run_host_rust_tests()
 
 
@@ -318,7 +318,7 @@ def run_android_checks() -> None:
         "Android Clippy (ARM64)",
         [
             "cargo", "ndk", "-t", "arm64-v8a", "clippy", "--workspace",
-            "--exclude", "gemacast-pc", "--", "-D", "warnings",
+            "--exclude", "gemacast-pc", "--locked", "--", "-D", "warnings",
         ],
         env=android_env,
     )
@@ -358,6 +358,8 @@ def main() -> int:
     print("Note: this validates only the current host, not the full Windows/macOS/Linux matrix.")
 
     try:
+        require_command("git")
+        run("Git whitespace check", ["git", "diff", "--check", "HEAD"])
         verify_version_sync()
         if not args.skip_audit:
             run_audit()
