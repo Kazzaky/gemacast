@@ -224,6 +224,45 @@ def run_frontend() -> None:
     run("Frontend production build", [bun, "run", "build"], cwd=mobile_dir)
     run("Bun unit tests", [bun, "test"], cwd=mobile_dir)
 
+    website_dir = ROOT / "web"
+    run("Install website dependencies", [bun, "install", "--frozen-lockfile"], cwd=website_dir)
+    run("Website production build (type-check + Vite)", [bun, "run", "build"], cwd=website_dir)
+
+
+def run_script_syntax_checks() -> None:
+    scripts_dir = ROOT / ".github" / "scripts"
+    shell_scripts = sorted(scripts_dir.glob("*.sh"))
+    bash = shutil.which("bash")
+    if shell_scripts and bash:
+        for script in shell_scripts:
+            run(
+                f"Shell syntax: {script.relative_to(ROOT)}",
+                [bash, "-n", str(script)],
+            )
+    elif shell_scripts and platform.system() != "Windows":
+        raise ValidationError("bash is required to syntax-check .github/scripts/*.sh.")
+
+    powershell_scripts = sorted(scripts_dir.glob("*.ps1"))
+    powershell = shutil.which("pwsh") or shutil.which("powershell")
+    if powershell and powershell_scripts:
+        parser_command = (
+            "$ErrorActionPreference = 'Stop'; "
+            "Get-ChildItem -LiteralPath '.github/scripts' -Filter '*.ps1' | "
+            "ForEach-Object { "
+            "$tokens = $null; $parseErrors = $null; "
+            "[System.Management.Automation.Language.Parser]::ParseFile("
+            "$_.FullName, [ref]$tokens, [ref]$parseErrors) | Out-Null; "
+            "if ($parseErrors.Count -gt 0) { "
+            "$parseErrors | ForEach-Object { Write-Error $_ }; exit 1 "
+            "} }"
+        )
+        run(
+            "PowerShell release-script syntax",
+            [powershell, "-NoProfile", "-NonInteractive", "-Command", parser_command],
+        )
+    elif powershell_scripts and platform.system() == "Windows":
+        raise ValidationError("PowerShell is required to syntax-check .github/scripts/*.ps1.")
+
 
 def run_rust_checks() -> None:
     require_command("cargo")
@@ -247,6 +286,10 @@ def run_rust_checks() -> None:
         ["cargo", "clippy", "--workspace", "--all-targets", "--locked", "--", "-D", "warnings"],
     )
     run("Build workspace (host target)", ["cargo", "build", "--workspace", "--locked"])
+    run(
+        "PC release build",
+        ["cargo", "build", "--release", "-p", "gemacast-pc", "--locked"],
+    )
     run_host_rust_tests()
 
 
@@ -361,6 +404,7 @@ def main() -> int:
         require_command("git")
         run("Git whitespace check", ["git", "diff", "--check", "HEAD"])
         verify_version_sync()
+        run_script_syntax_checks()
         if not args.skip_audit:
             run_audit()
         if not args.skip_frontend:
