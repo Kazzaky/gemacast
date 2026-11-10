@@ -29,6 +29,9 @@ pub struct SessionInfo {
     pub target_ip: Option<IpAddr>,
     pub device_id: String,
     pub network_link: NetworkLink,
+    /// Keep the authenticated audio key with the active session so reconnects
+    /// continue using the same key that the PC issued for this session.
+    pub audio_key: AudioSessionKey,
 }
 
 /// Simplified network interface info, decoupled from `netdev::Interface`.
