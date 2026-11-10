@@ -1,6 +1,6 @@
 #!/usr/bin/env bash
 # Build an AppImage from an extracted cargo-dist binary archive.
-# Always bundles ADB regardless of architecture mismatch.
+# The AppImage contains only Gemacast; runtime transport does not use ADB.
 # Expects env vars: VERSION, ARCH, DIST_EXTRACTED (path to extracted binary dir)
 set -euo pipefail
 
