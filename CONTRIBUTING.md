@@ -180,8 +180,9 @@ minification. JNI changes require a release APK check. Shell scripts and
 ### Website and containers
 
 Website commands are listed in [web/README.md](web/README.md). The CI frontend
-job performs a locked dependency install and production build for the website;
-there are currently no website unit-test files.
+job performs locked dependency installation, non-mutating format/lint checks,
+and a production build for the website; there are currently no website
+unit-test files.
 
 Linux and Android container commands are in [docker/README.md](docker/README.md).
 Windows and macOS checks run on native CI hosts.
