@@ -226,6 +226,8 @@ def run_frontend() -> None:
 
     website_dir = ROOT / "web"
     run("Install website dependencies", [bun, "install", "--frozen-lockfile"], cwd=website_dir)
+    run("Website format check", [bun, "run", "format:check"], cwd=website_dir)
+    run("Website lint (read-only)", [bun, "run", "lint:check"], cwd=website_dir)
     run("Website production build (type-check + Vite)", [bun, "run", "build"], cwd=website_dir)
 
 
