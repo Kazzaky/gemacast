@@ -382,6 +382,13 @@ pub enum UpdaterError {
         source: std::io::Error,
     },
 
+    #[error("failed to publish verified update file at {path}")]
+    CommitUpdateFile {
+        path: String,
+        #[source]
+        source: std::io::Error,
+    },
+
     #[error("sha256 mismatch for {path}: expected {expected}, got {actual}")]
     ChecksumMismatch {
         path: String,
