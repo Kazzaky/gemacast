@@ -273,17 +273,15 @@ pub(crate) async fn handle_change_source<P: ProcessLister + 'static>(
 ) -> Response {
     tracing::info!("HTTP POST /change-source from {:?}", req.device_id);
     let _ = addr;
-    if state
-        .authenticate_device(&headers, &req.device_id)
-        .is_none()
-    {
+    let Some(session) = state.authenticate_device(&headers, &req.device_id) else {
         return unauthorized();
-    }
+    };
     let (response_tx, response_rx) = oneshot::channel();
     if state
         .command_tx
         .send(ControlCommand::ChangeSource {
             device_id: req.device_id,
+            generation: session.generation,
             source: req.source,
             response_tx,
         })
@@ -307,17 +305,15 @@ pub(crate) async fn handle_change_bitrate<P: ProcessLister + 'static>(
 ) -> Response {
     tracing::info!("HTTP POST /change-bitrate from {:?}", req.device_id);
     let _ = addr;
-    if state
-        .authenticate_device(&headers, &req.device_id)
-        .is_none()
-    {
+    let Some(session) = state.authenticate_device(&headers, &req.device_id) else {
         return unauthorized();
-    }
+    };
     let (response_tx, response_rx) = oneshot::channel();
     if state
         .command_tx
         .send(ControlCommand::ChangeBitrate {
             device_id: req.device_id,
+            generation: session.generation,
             bitrate: req.bitrate,
             response_tx,
         })
