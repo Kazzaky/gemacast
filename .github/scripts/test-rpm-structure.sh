@@ -27,10 +27,30 @@ else
   echo "FAIL: Binary not found in RPM"; ERRORS=$((ERRORS+1))
 fi
 
-if echo "$CONTENTS" | grep -q "adb"; then
-  echo "PASS: ADB found in RPM"
+if echo "$CONTENTS" | grep -Eiq '/(adb(\.exe)?|AdbWinApi\.dll|AdbWinUsbApi\.dll)
+
+# firewalld service must survive alien's deb→rpm conversion
+if echo "$CONTENTS" | grep -q "firewalld/services/gemacast.xml"; then
+  echo "PASS: firewalld service found in RPM"
 else
-  echo "FAIL: ADB not found in RPM"; ERRORS=$((ERRORS+1))
+  echo "FAIL: firewalld service not found in RPM"; ERRORS=$((ERRORS+1))
+fi
+
+# alien --scripts must carry the postinst/postrm across; rpm stores them as
+# scriptlets, visible via --scripts (not in the file list).
+SCRIPTLETS=$(rpm -qp --scripts "$RPM_FILE" 2>/dev/null || true)
+if echo "$SCRIPTLETS" | grep -q "add-service=gemacast"; then
+  echo "PASS: postinst scriptlet carried into RPM"
+else
+  echo "FAIL: postinst scriptlet missing from RPM"; ERRORS=$((ERRORS+1))
+fi
+
+if [ $ERRORS -gt 0 ]; then exit 1; fi
+echo "All .rpm structure checks passed"
+; then
+  echo "FAIL: ADB runtime binary found in RPM"; ERRORS=$((ERRORS+1))
+else
+  echo "PASS: no ADB runtime binaries are packaged"
 fi
 
 # firewalld service must survive alien's deb→rpm conversion
