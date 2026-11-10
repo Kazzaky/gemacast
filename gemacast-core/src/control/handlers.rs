@@ -144,9 +144,9 @@ pub(crate) async fn handle_connect<P: ProcessLister + 'static>(
         );
     }
 
-    let authorized = state
+    let authorized_generation = state
         .authenticate_device(&headers, &req.device_id)
-        .is_some();
+        .map(|session| session.generation);
     let (response_tx, response_rx) = oneshot::channel();
     if state
         .command_tx
@@ -157,7 +157,7 @@ pub(crate) async fn handle_connect<P: ProcessLister + 'static>(
             remote_addr: addr,
             bitrate: req.bitrate,
             response_tx,
-            authorized,
+            authorized_generation,
             pending_request_id: req.pending_request_id,
             device_auth: req.device_auth,
         })
