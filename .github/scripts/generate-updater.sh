@@ -24,15 +24,9 @@ declare -A FILES=(
   ["android"]="gemacast-mobile-universal.apk"
 )
 
-declare -A SIGS=(
-  ["windows-x86_64"]="gemacast-pc-x86_64-pc-windows-msvc.msi.sig"
-  ["darwin-x86_64"]="gemacast-pc-x64-apple-darwin.dmg.sig"
-  ["darwin-aarch64"]="gemacast-pc-aarch64-apple-darwin.dmg.sig"
-  ["darwin-universal"]="gemacast-pc-universal-apple-darwin.dmg.sig"
-  ["linux-x86_64"]="gemacast-pc-${VERSION}-x86_64.AppImage.sig"
-  ["linux-aarch64"]="gemacast-pc-${VERSION}-aarch64.AppImage.sig"
-  ["android"]="gemacast-mobile-universal.apk.sig"
-)
+# Detached GPG signatures remain attached to the GitHub Release for manual
+# verification. The in-app updater currently verifies the SHA-256 digest from
+# this HTTPS manifest; it does not parse OpenPGP signatures.
 
 # Download each artifact, hash it, and add it to the platform map.
 #
@@ -47,8 +41,6 @@ MISSING=()
 
 for platform in "${!FILES[@]}"; do
   file="${FILES[$platform]}"
-  sig="${SIGS[$platform]}"
-
   if ! gh release download "$TAG" --pattern "$file" --dir dl --repo "$REPO" 2>/dev/null; then
     echo "WARNING: could not download $file — omitting platform '$platform'" >&2
     MISSING+=("$platform")
@@ -62,9 +54,8 @@ for platform in "${!FILES[@]}"; do
     --argjson acc "$PLATFORMS_JSON" \
     --arg key "$platform" \
     --arg url "${BASE_URL}/${file}" \
-    --arg sig "${BASE_URL}/${sig}" \
     --arg hash "$hash" \
-    '$acc + { ($key): { url: $url, signature: $sig, sha256: $hash } }')
+    '$acc + { ($key): { url: $url, sha256: $hash } }')
 done
 
 # A manifest with no platforms would make every client report "no entry for
