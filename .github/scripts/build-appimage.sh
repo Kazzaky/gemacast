@@ -15,19 +15,7 @@ mkdir -p "$APPDIR/usr/share/icons/hicolor/256x256/apps"
 
 cp "${DIST_EXTRACTED}/gemacast-pc" "$APPDIR/usr/bin/"
 
-# Always bundle ADB regardless of architecture mismatch.
-# On ARM64 hosts, the x86_64 adb can run via qemu-user-static / binfmt_misc.
-# With the build.rs fix, ARM64 builds now download native ARM64 adb.
-if [ -f "${DIST_EXTRACTED}/adb" ]; then
-  cp "${DIST_EXTRACTED}/adb" "$APPDIR/usr/bin/"
-  ADB_ARCH=$(file "${DIST_EXTRACTED}/adb" | grep -oP 'ELF \d+-bit .+?, \K[^,]+' || echo "unknown")
-  echo "Bundled adb (binary arch: $ADB_ARCH, target: $ARCH)"
-  if ! echo "$ADB_ARCH" | grep -qi "$ARCH\|$([ "$ARCH" = "x86_64" ] && echo 'X86-64' || echo 'AArch64')"; then
-    echo "::notice::ADB arch ($ADB_ARCH) differs from target ($ARCH) — requires qemu-user-static or binfmt_misc on ARM64 hosts"
-  fi
-else
-  echo "::warning::ADB binary not found in ${DIST_EXTRACTED}/"
-fi
+# The desktop AppImage contains only Gemacast; device transport does not use ADB.
 chmod +x "$APPDIR/usr/bin/"*
 
 cp linux/gemacast-pc.desktop "$APPDIR/"
