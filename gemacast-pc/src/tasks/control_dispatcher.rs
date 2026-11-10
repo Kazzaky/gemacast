@@ -67,7 +67,7 @@ impl ControlDispatcher {
                                 let _ = response_tx
                                     .send(Err("LAN device authentication proof is missing".into()));
                                 return;
-                                }
+                            }
                         };
                         let identity = match self.device_auth.pending_pairing(
                             &request_id,
