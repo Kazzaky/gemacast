@@ -1,7 +1,7 @@
 {
   "$schema": "tauri.schema.json",
   "productName": "Gemacast",
-  "version": "0.6.0",
+  "version": "0.7.0",
   "identifier": "com.apir.gemacast",
   "build": {
     "beforeDevCommand": "bun run dev",
