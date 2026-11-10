@@ -273,7 +273,7 @@ impl DownloadProgress {
         };
 
         let percent =
-            ((self.downloaded_bytes as f64 / total_bytes as f64) * 100.0).min(100.0) as u8;
+            ((self.downloaded_bytes as f64 / total_bytes as f64) * 100.0).min(99.0) as u8;
         if percent != self.last_reported_percent {
             self.last_reported_percent = percent;
             self.send(percent);
@@ -325,6 +325,19 @@ mod url_tests {
         ] {
             assert!(!approved_redirect_url(&reqwest::Url::parse(url).unwrap()));
         }
+    }
+
+    #[tokio::test]
+    async fn download_progress_reports_100_only_after_verified_publication() {
+        let (tx, mut rx) = mpsc::channel(4);
+        let mut progress = DownloadProgress::new(Some(4), Some(tx));
+
+        progress.record(4);
+        assert_eq!(rx.try_recv().unwrap(), 99);
+
+        progress.complete();
+        assert_eq!(rx.try_recv().unwrap(), 100);
+        assert!(rx.try_recv().is_err());
     }
 
     #[test]
