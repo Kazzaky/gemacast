@@ -359,6 +359,7 @@ impl ControlDispatcher {
             }
             ControlCommand::ChangeSource {
                 device_id,
+                generation,
                 source,
                 response_tx,
             } => {
@@ -367,10 +368,15 @@ impl ControlDispatcher {
                     device_id,
                     source
                 );
+                if !self.authorizer.is_current(&device_id, generation) {
+                    let _ = response_tx.send(Err("session is no longer active".into()));
+                    return;
+                }
                 let _ = response_tx.send(self.audio.change_source(device_id, source).await);
             }
             ControlCommand::ChangeBitrate {
                 device_id,
+                generation,
                 bitrate,
                 response_tx,
             } => {
@@ -379,6 +385,10 @@ impl ControlDispatcher {
                     device_id,
                     bitrate
                 );
+                if !self.authorizer.is_current(&device_id, generation) {
+                    let _ = response_tx.send(Err("session is no longer active".into()));
+                    return;
+                }
                 let _ = response_tx.send(self.audio.change_bitrate(device_id, bitrate).await);
             }
             ControlCommand::SessionHeartbeat {
