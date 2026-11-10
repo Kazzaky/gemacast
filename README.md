@@ -69,8 +69,8 @@ xattr -d com.apple.quarantine /Applications/Gemacast.app
 
 | Mode | Setup | Transport |
 | --- | --- | --- |
-| Wi-Fi | Connect both devices to the same reachable LAN | UDP audio; HTTPS/WSS control |
-| USB tethering | Connect USB and enable Android USB tethering | Same protocol as Wi-Fi over the tethered interface |
+| Wi-Fi | Connect both devices to the same reachable LAN | Encrypted/authenticated UDP audio; HTTPS/WSS control |
+| USB tethering | Connect USB and enable Android USB tethering | Same encrypted UDP audio and HTTPS/WSS control as Wi-Fi |
 
 LAN discovery can be blocked by client isolation, guest networks, VPN routing,
 or firewall rules. USB tethering provides a direct IP network between the devices.
@@ -95,12 +95,22 @@ contribute to that delay.
 
 ## Authentication and privacy
 
-- Control uses TLS and P-256 device authentication. Pairing compares a six-digit
-  code; approved PC identities are stored on the phone.
-- Session tokens are memory-only and rotate on connection. A changed PC
-  certificate requires forgetting its stored identity before pairing again.
-- UDP audio is neither encrypted nor authenticated. LAN streaming therefore
-  requires a trusted network.
+- Control uses TLS with PC-certificate pinning and P-256 device authentication.
+  Initial pairing requires explicit approval and comparison of a six-digit code.
+  The phone remembers the approved PC certificate; the PC remembers approved
+  device public keys.
+- Each connection receives a random 256-bit session token over the TLS control
+  channel. The token remains in memory, rotates on reconnection, and derives
+  that session's UDP audio key.
+- UDP audio packets (Opus, silence, and chunked PCM) use ChaCha20-Poly1305
+  authenticated encryption. Payloads are encrypted and the clear packet headers
+  are authenticated. The receiver rejects invalid authentication tags and
+  replayed packets.
+- RTT echo packets are encrypted and authenticated with a separate key derived
+  from the session key. Their timestamps are not sent in clear text.
+- Initial UDP/mDNS discovery presence and probe messages are unauthenticated
+  discovery hints. They do not authorize a device or grant access to control
+  operations; pairing and the authenticated TLS session do that.
 - An authenticated phone can request the PC process list to select an audio source.
 
 ## Network ports
