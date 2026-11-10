@@ -41,12 +41,17 @@ if ($proc.ExitCode -ne 0) {
 
 $errors = @()
 
-foreach ($f in @("gemacast-pc.exe", "adb.exe", "AdbWinApi.dll", "AdbWinUsbApi.dll")) {
-    if (-not (Test-Path "$customDir\$f")) {
-        $errors += "$f not found in $customDir"
-    } else {
-        Write-Host "PASS: $f installed under the Gemacast subfolder"
-    }
+if (-not (Test-Path "$customDir\gemacast-pc.exe")) {
+    $errors += "gemacast-pc.exe not found in $customDir"
+} else {
+    Write-Host "PASS: gemacast-pc.exe installed under the Gemacast subfolder"
+}
+$legacyFiles = @("adb.exe", "AdbWinApi.dll", "AdbWinUsbApi.dll") |
+    Where-Object { Test-Path (Join-Path $customDir $_) }
+if ($legacyFiles) {
+    $errors += "legacy ADB files were staged: $($legacyFiles -join ', ')"
+} else {
+    Write-Host "PASS: no legacy ADB files in custom installation"
 }
 
 # The reported bug was files landing straight in the folder the user picked.
@@ -116,13 +121,13 @@ if (-not (Test-Path "$installDir\gemacast-pc.exe")) {
     Write-Host "PASS: gemacast-pc.exe exists"
 }
 
-# Check ADB binaries
-foreach ($f in @("adb.exe", "AdbWinApi.dll", "AdbWinUsbApi.dll")) {
-    if (-not (Test-Path "$installDir\$f")) {
-        $errors += "$f not found in $installDir"
-    } else {
-        Write-Host "PASS: $f exists"
-    }
+# The application must not install the removed ADB runtime.
+$legacyFiles = @("adb.exe", "AdbWinApi.dll", "AdbWinUsbApi.dll") |
+    Where-Object { Test-Path (Join-Path $installDir $_) }
+if ($legacyFiles) {
+    $errors += "legacy ADB files were installed: $($legacyFiles -join ', ')"
+} else {
+    Write-Host "PASS: no legacy ADB files installed"
 }
 
 # Check firewall rules
@@ -179,24 +184,8 @@ try {
         Write-Host "PASS: gemacast-pc.exe is running (PID $($app.Id))"
     }
 
-    $watchdogAdb = Get-Process adb -ErrorAction SilentlyContinue
-    if ($watchdogAdb) {
-        Write-Host "NOTE: the app's ADB watchdog already started a server"
-    } else {
-        Write-Host "NOTE: no ADB server from the app; starting one directly"
-    }
-
-    $null = & "$installDir\adb.exe" kill-server 2>$null
-    $null = & "$installDir\adb.exe" start-server 2>$null
-
-    $ourAdb = Get-Process adb -ErrorAction SilentlyContinue |
-        Where-Object { $_.Path -and $_.Path.StartsWith($installDir, 'OrdinalIgnoreCase') }
-    if ($ourAdb) {
-        Write-Host "PASS: adb.exe is running from the install directory and holding it open"
-    } else {
-        $running = (Get-Process adb -ErrorAction SilentlyContinue | ForEach-Object { $_.Path }) -join ', '
-        $errors += "no adb.exe running from ${installDir} (running: '$running'), so uninstalling now would prove nothing"
-    }
+    # The desktop process remains running so CloseGemacast must terminate it
+    # before MSI can remove its executable and installation directory.
 
     if ($errors.Count -gt 0) {
         Write-Host "`n=== INSTALLATION FAILURES ==="
@@ -219,12 +208,10 @@ try {
     # Checked here rather than below, because the cleanup in `finally` would make
     # the assertion pass on its own.
     $survivors = @()
-    foreach ($name in @("gemacast-pc", "adb")) {
-        if (Get-Process $name -ErrorAction SilentlyContinue) {
-            $survivors += $name
-        } else {
-            Write-Host "PASS: no $name process survived the uninstall"
-        }
+    if (Get-Process gemacast-pc -ErrorAction SilentlyContinue) {
+        $survivors += "gemacast-pc"
+    } else {
+        Write-Host "PASS: no gemacast-pc process survived the uninstall"
     }
     if ($survivors.Count -gt 0) {
         Write-Host "`n=== UNINSTALL FAILURES ==="
@@ -233,8 +220,8 @@ try {
     }
 }
 finally {
-    # A failed assertion above must not leave processes behind for the rest of the job.
-    Get-Process gemacast-pc, adb -ErrorAction SilentlyContinue | Stop-Process -Force -ErrorAction SilentlyContinue
+    # A failed assertion above must not leave the desktop process behind.
+    Get-Process gemacast-pc -ErrorAction SilentlyContinue | Stop-Process -Force -ErrorAction SilentlyContinue
 }
 
 # ── Verify Uninstall ──────────────────────────────────────────────────────
