@@ -156,6 +156,10 @@ def run_audit() -> None:
             f"{GLIB_REV}. Check the lockfile before running the dependency audit."
         )
     require_command("cargo")
+    require_command(
+        "cargo-audit",
+        "Install the local audit subcommand with: cargo install cargo-audit --locked",
+    )
     run(
         "Rust dependency audit (uses .cargo/audit.toml)",
         ["cargo", "audit"],
@@ -229,6 +233,21 @@ def run_android_checks() -> None:
             f"Pinned Android NDK was not found at {ndk}. Install NDK 25.2.9519653 first."
         )
     java = require_command("java", "Install JDK 17 and configure JAVA_HOME.")
+    java_version = subprocess.run(
+        [java, "-version"],
+        cwd=ROOT,
+        text=True,
+        stdout=subprocess.PIPE,
+        stderr=subprocess.PIPE,
+        check=False,
+    )
+    java_output = java_version.stdout + java_version.stderr
+    java_match = re.search(r'version "?(?:1\\.)?(\\d+)', java_output)
+    if java_version.returncode != 0 or not java_match or java_match.group(1) != "17":
+        raise ValidationError(
+            "Android checks require JDK 17; detected "
+            f"{java_output.strip() or 'an unknown Java version'}."
+        )
     cargo_ndk = shutil.which("cargo-ndk")
     if not cargo_ndk:
         raise ValidationError("cargo-ndk is missing. Install it with: cargo install cargo-ndk")
