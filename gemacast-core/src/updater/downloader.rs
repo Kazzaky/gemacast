@@ -217,7 +217,7 @@ impl DownloadedArtifact {
 
         // Close the staging file before renaming; Windows does not allow an
         // open file handle to be moved in every sharing configuration.
-        self.file.take();
+        drop(self.file.take());
 
         // Unix rename atomically replaces an existing destination. Windows
         // requires removing the previous file before the staged file can be moved.
@@ -244,7 +244,7 @@ impl DownloadedArtifact {
 impl Drop for DownloadedArtifact {
     fn drop(&mut self) {
         // Close first so the partial file can also be removed on Windows.
-        self.file.take();
+        drop(self.file.take());
         let _ = std::fs::remove_file(&self.path);
     }
 }
