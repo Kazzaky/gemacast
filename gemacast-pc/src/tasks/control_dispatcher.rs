@@ -61,13 +61,13 @@ impl ControlDispatcher {
                         }
                         (None, None)
                     } else if let Some(request_id) = pending_request_id {
-                    let auth = match device_auth.as_ref() {
-                        Some(auth) => auth,
-                        None => {
-                            let _ = response_tx
-                                .send(Err("LAN device authentication proof is missing".into()));
-                            return;
-                        }
+                        let auth = match device_auth.as_ref() {
+                            Some(auth) => auth,
+                            None => {
+                                let _ = response_tx
+                                    .send(Err("LAN device authentication proof is missing".into()));
+                                return;
+                            }
                     };
                     let identity = match self.device_auth.pending_pairing(
                         &request_id,
@@ -1414,12 +1414,12 @@ mod tests {
         assert!(trusted_devices.is_trusted(&device_id, "public-key"));
     }
 
-    mod stale_session_mutations {
+    mod stale_session_commands {
         use super::*;
         use tokio::sync::oneshot;
 
         #[tokio::test]
-        async fn stale_session_must_not_change_source_or_bitrate() {
+        async fn stale_session_must_not_reconnect_or_mutate_audio() {
             let device_id = DeviceId("phone-1".into());
             let authorizer = SessionAuthorizer::default();
             let (_, stale_generation) = authorizer.issue(device_id.clone()).unwrap();
