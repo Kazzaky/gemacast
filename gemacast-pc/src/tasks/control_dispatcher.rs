@@ -1407,6 +1407,67 @@ mod tests {
         assert!(trusted_devices.is_trusted(&device_id, "public-key"));
     }
 
+    mod stale_session_mutations {
+        use super::*;
+        use tokio::sync::oneshot;
+
+        #[tokio::test]
+        async fn stale_session_must_not_change_source_or_bitrate() {
+            let device_id = DeviceId("phone-1".into());
+            let authorizer = SessionAuthorizer::default();
+            let (_, stale_generation) = authorizer.issue(device_id.clone()).unwrap();
+            let _ = authorizer.issue(device_id.clone()).unwrap();
+
+            let audio = Arc::new(MockAudioController::new());
+            let dispatcher = ControlDispatcher {
+                registry: Arc::new(MockDeviceRegistry::new()),
+                tray: Arc::new(MockTrayNotifier::new()),
+                audio: audio.clone(),
+                notifier: Arc::new(MockDeviceNotifier::new()),
+                streamer_id: DeviceId("pc-1".into()),
+                streamer_name: "Test PC".into(),
+                pc_certificate_fingerprint: "pc-certificate".into(),
+                is_broadcasting: Arc::new(AtomicBool::new(true)),
+                authorizer,
+                device_auth: DeviceAuthManager::default(),
+                trusted_devices: TrustedDeviceStore::in_memory(),
+            };
+
+            let (source_tx, source_rx) = oneshot::channel();
+            dispatcher
+                .handle_command(ControlCommand::ChangeSource {
+                    device_id: device_id.clone(),
+                    generation: stale_generation,
+                    source: gemacast_core::domain::types::AudioSource::Desktop,
+                    response_tx: source_tx,
+                })
+                .await;
+            assert_eq!(
+                source_rx.await.unwrap(),
+                Err("session is no longer active".into())
+            );
+
+            let (bitrate_tx, bitrate_rx) = oneshot::channel();
+            dispatcher
+                .handle_command(ControlCommand::ChangeBitrate {
+                    device_id,
+                    generation: stale_generation,
+                    bitrate: Some(192_000),
+                    response_tx: bitrate_tx,
+                })
+                .await;
+            assert_eq!(
+                bitrate_rx.await.unwrap(),
+                Err("session is no longer active".into())
+            );
+
+            assert!(
+                audio.take_calls().is_empty(),
+                "stale commands must not reach the active audio stream"
+            );
+        }
+    }
+
     mod session_heartbeat {
         use super::*;
         use std::time::{Duration, Instant};
