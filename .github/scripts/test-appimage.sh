@@ -1,5 +1,5 @@
 #!/usr/bin/env bash
-# Verify AppImage: structure, ADB presence, and smoke test.
+# Verify AppImage structure, absence of bundled ADB, and smoke test.
 # Expects env vars: VERSION, ARCH
 set -euo pipefail
 
@@ -39,10 +39,10 @@ else
   echo "FAIL: gemacast-pc binary not found inside AppImage"; ERRORS=$((ERRORS+1))
 fi
 
-if [ -f squashfs-root/usr/bin/adb ]; then
-  echo "PASS: ADB binary found inside AppImage"
+if [ -e squashfs-root/usr/bin/adb ]; then
+  echo "FAIL: unexpected ADB binary bundled inside AppImage"; ERRORS=$((ERRORS+1))
 else
-  echo "FAIL: ADB binary not found inside AppImage"; ERRORS=$((ERRORS+1))
+  echo "PASS: no ADB binary is bundled"
 fi
 
 # Smoke test: run under xvfb
