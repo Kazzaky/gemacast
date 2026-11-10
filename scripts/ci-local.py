@@ -4,6 +4,7 @@
 from __future__ import annotations
 
 import argparse
+import json
 import os
 import platform
 import re
@@ -147,6 +148,34 @@ def run_host_rust_tests() -> None:
         )
 
 
+def verify_version_sync() -> None:
+    cargo_text = (ROOT / "Cargo.toml").read_text(encoding="utf-8")
+    cargo_match = re.search(
+        r'(?ms)^\[workspace\.package\]\s+.*?^version\s*=\s*"([^"]+)"',
+        cargo_text,
+    )
+    if not cargo_match:
+        raise ValidationError("Could not read the workspace version from Cargo.toml.")
+    versions = {
+        "Cargo.toml": cargo_match.group(1),
+        "version.txt": (ROOT / "version.txt").read_text(encoding="utf-8").strip(),
+        "gemacast-mobile/package.json": json.loads(
+            (ROOT / "gemacast-mobile" / "package.json").read_text(encoding="utf-8")
+        )["version"],
+        "gemacast-mobile/src-tauri/tauri.conf.json": json.loads(
+            (ROOT / "gemacast-mobile" / "src-tauri" / "tauri.conf.json").read_text(
+                encoding="utf-8"
+            )
+        )["version"],
+    }
+    unique_versions = set(versions.values())
+    if len(unique_versions) != 1 or not next(iter(unique_versions), ""):
+        details = ", ".join(f"{name}={version!r}" for name, version in versions.items())
+        raise ValidationError(f"Application versions are out of sync: {details}")
+
+    print_step(f"Version metadata is synchronized (v{next(iter(unique_versions))})")
+
+
 def run_audit() -> None:
     lock_path = ROOT / "Cargo.lock"
     lock_text = lock_path.read_text(encoding="utf-8")
@@ -242,7 +271,7 @@ def run_android_checks() -> None:
         check=False,
     )
     java_output = java_version.stdout + java_version.stderr
-    java_match = re.search(r'version "?(?:1\\.)?(\\d+)', java_output)
+    java_match = re.search(r'(?:java|openjdk)(?: version)?\s+"?(?:1\.)?(\d+)', java_output, re.IGNORECASE)
     if java_version.returncode != 0 or not java_match or java_match.group(1) != "17":
         raise ValidationError(
             "Android checks require JDK 17; detected "
@@ -329,6 +358,7 @@ def main() -> int:
     print("Note: this validates only the current host, not the full Windows/macOS/Linux matrix.")
 
     try:
+        verify_version_sync()
         if not args.skip_audit:
             run_audit()
         if not args.skip_frontend:
