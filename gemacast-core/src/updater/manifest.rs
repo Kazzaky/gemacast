@@ -77,6 +77,7 @@ impl ReleaseManifest {
 }
 
 #[derive(Debug, Clone, Deserialize)]
+#[serde(deny_unknown_fields)]
 struct PlatformRelease {
     url: String,
     #[serde(default)]
@@ -166,6 +167,27 @@ mod tests {
         assert!(
             matches!(error, UpdaterError::MissingChecksum { .. }),
             "unexpected error: {error}"
+        );
+    }
+
+    #[test]
+    fn unverified_signature_metadata_is_rejected_instead_of_ignored() {
+        let json = format!(
+            r#"{{
+                "version": "0.3.0",
+                "platforms": {{
+                    "windows-x86_64": {{
+                        "url": "https://github.com/Kazzaky/gemacast/releases/download/v0.3.0/app.msi",
+                        "sha256": "{VALID_CHECKSUM}",
+                        "signature": "https://github.com/Kazzaky/gemacast/releases/download/v0.3.0/app.msi.sig"
+                    }}
+                }}
+            }}"#
+        );
+
+        assert!(
+            ReleaseManifest::from_bytes(json.as_bytes()).is_err(),
+            "the updater must not silently accept metadata it does not verify"
         );
     }
 
