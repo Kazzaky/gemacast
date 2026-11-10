@@ -25,7 +25,7 @@ cp linux/gemacast-pc.png "$APPDIR/usr/share/icons/hicolor/256x256/apps/gemacast-
 cp linux/gemacast-pc.png "$APPDIR/.DirIcon"
 
 # Create AppRun — written via printf to avoid heredoc/YAML conflicts
-printf '#!/bin/bash\nSELF="$(readlink -f "$0")"\nHERE="${SELF%%/*}"\nexport PATH="${HERE}/usr/bin:${PATH}"\nexec "${HERE}/usr/bin/gemacast-pc" "$@"\n' > "$APPDIR/AppRun"
+printf '#!/bin/bash\nSELF="$(readlink -f "$0")"\nHERE="${SELF%/*}"\nexport PATH="${HERE}/usr/bin:${PATH}"\nexec "${HERE}/usr/bin/gemacast-pc" "$@"\n' > "$APPDIR/AppRun"
 chmod +x "$APPDIR/AppRun"
 
 # Download appimagetool for the current architecture
