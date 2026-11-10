@@ -22,10 +22,12 @@ pub(crate) const ECHO_PACKET_LEN: usize = HEADER_LEN + TIMESTAMP_LEN + TAG_LEN;
 const REPLAY_WINDOW: u64 = 1024;
 
 static PING_EPOCH: LazyLock<Instant> = LazyLock::new(Instant::now);
+// One nonce allocator for every echo sender in this process. Recreating a
+// heartbeat with the same session key must not restart its AEAD nonce sequence.
+static NEXT_ECHO_SEQUENCE: AtomicU64 = AtomicU64::new(0);
 
 pub(crate) struct EchoPacketCipher {
     key: LessSafeKey,
-    next_sequence: AtomicU64,
 }
 
 impl EchoPacketCipher {
@@ -35,15 +37,13 @@ impl EchoPacketCipher {
             .expect("32-byte echo key is valid for ChaCha20-Poly1305");
         Self {
             key: LessSafeKey::new(unbound),
-            next_sequence: AtomicU64::new(Self::now_micros()),
         }
     }
 
-    /// Build a fresh authenticated ping. A process-wide monotonic timestamp
-    /// seeds the counter and the counter allocates each nonce exactly once.
+    /// Build a fresh authenticated ping. A process-wide atomic counter
+    /// allocates each nonce exactly once, including across cipher instances.
     pub(crate) fn build(&self) -> Result<Vec<u8>, String> {
-        let sequence = self
-            .next_sequence
+        let sequence = NEXT_ECHO_SEQUENCE
             .fetch_update(Ordering::Relaxed, Ordering::Relaxed, |current| {
                 current.checked_add(1)
             })
@@ -215,6 +215,19 @@ mod tests {
         let second = cipher.build().unwrap();
         let (first_sequence, _) = EchoPacketCipher::new(&key()).open(&first).unwrap();
         let (second_sequence, _) = EchoPacketCipher::new(&key()).open(&second).unwrap();
+        assert_ne!(first_sequence, second_sequence);
+    }
+
+    #[test]
+    fn echo_nonce_sequences_remain_unique_across_cipher_instances() {
+        let first_cipher = EchoPacketCipher::new(&key());
+        let second_cipher = EchoPacketCipher::new(&key());
+        let first = first_cipher.build().unwrap();
+        let second = second_cipher.build().unwrap();
+        let receiver = EchoPacketCipher::new(&key());
+
+        let (first_sequence, _) = receiver.open(&first).unwrap();
+        let (second_sequence, _) = receiver.open(&second).unwrap();
         assert_ne!(first_sequence, second_sequence);
     }
 }
