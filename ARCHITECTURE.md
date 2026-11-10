@@ -94,14 +94,25 @@ Ports are defined in [network/ports.rs](gemacast-core/src/network/ports.rs).
 | Control | PC TCP 23559 | HTTPS requests and WSS events |
 | LAN audio | Phone UDP 23556 | Audio datagrams; PC source port is ephemeral |
 
-Wi-Fi and USB tethering both use the same UDP audio and discovery protocol.
+Wi-Fi and USB tethering use the same UDP audio protocol. Discovery presence
+and probe messages are sent over UDP/mDNS before pairing; these discovery hints
+are unauthenticated and must not be treated as proof of identity.
 
-Control uses TLS. UDP audio has no encryption or authentication; sequence and
-generation fields identify ordering and sender replacement, not packet integrity.
+Control uses TLS. The phone authenticates the PC certificate and proves its
+P-256 device identity during pairing. The PC issues a random 256-bit session
+token over that TLS channel. The token is memory-only, rotates on reconnection,
+and derives the per-session audio key.
+
+UDP audio uses ChaCha20-Poly1305 authenticated encryption. Every datagram's
+clear header is associated data; the audio payload is encrypted and an
+authentication tag is appended. The receiver authenticates before decoding,
+updating metrics, or accepting a packet into its replay window. Audio and RTT
+echo traffic use separate domain-derived keys.
 
 ## Audio wire format
 
-The [base encoder](gemacast-core/src/stream/streamer/encode.rs) emits:
+The [base encoder](gemacast-core/src/stream/streamer/encode.rs) emits a nine-byte
+clear header followed by the encoded payload:
 
 | Field | Bytes | Encoding |
 | --- | --- | --- |
@@ -109,9 +120,17 @@ The [base encoder](gemacast-core/src/stream/streamer/encode.rs) emits:
 | Format | 1 | `0`: Opus; `1`: PCM; `2`: silence |
 | Payload | Variable | Opus bytes, 3,840 PCM bytes, or empty for silence |
 
-PCM samples are native-endian `f32`; the integer headers are big-endian.
-Silence packets contain only the nine-byte header. Format constants are in
+The nine-byte header remains clear for packet classification and is
+authenticated as AEAD associated data. The payload is encrypted and followed by
+a 16-byte Poly1305 authentication tag. A silence packet is therefore 25 bytes:
+the nine-byte header plus the tag. PCM samples are native-endian `f32`;
+integer headers are big-endian. Format constants are in
 [audio/mod.rs](gemacast-core/src/audio/mod.rs).
+
+The 96-bit ChaCha20-Poly1305 nonce is derived from the frame sequence and packet
+format; chunked PCM also includes the chunk index. Sender sequence ranges do
+not overlap when a sender is recreated under the same session key. The phone
+rejects duplicate and stale packets within a bounded replay window.
 
 ### UDP PCM
 
@@ -123,13 +142,27 @@ Each non-silent PCM frame is divided into four datagrams:
 | Format | 1 | `3`: chunked PCM |
 | Sender generation | 8 | Big-endian `u64` |
 | Chunk index | 1 | `0`–`3` |
-| PCM slice | 960 | One quarter of the frame |
+| Encrypted PCM slice | 960 | One quarter of the frame, encrypted |
+| Authentication tag | 16 | ChaCha20-Poly1305 tag |
 
-Each datagram is 978 bytes before UDP/IP headers. The sender transmits all four
-on the 10 ms frame clock. The receiver releases a frame only after all chunks
-arrive. Send age is limited to 40 ms; incomplete assemblies expire at 100 ms.
+The 18-byte clear header is authenticated as associated data. Each datagram is
+994 bytes before UDP/IP headers (18-byte header + 960-byte ciphertext + 16-byte
+tag), safely below the usual Ethernet MTU. The sender transmits all four on the
+10 ms frame clock. The receiver releases a frame only after all chunks arrive.
+Send age is limited to 40 ms; incomplete assemblies expire at 100 ms.
 
-Implementation: [chunk format](gemacast-core/src/audio/pcm_datagram.rs),
+### UDP RTT echo
+
+A phone sends a 34-byte authenticated echo datagram: a 10-byte clear header
+(two-byte magic plus an eight-byte sequence), an eight-byte encrypted monotonic
+timestamp, and a 16-byte authentication tag. The header is authenticated as
+associated data. Echo uses a separate key derived from the audio session key,
+and both reflection and RTT measurement reject invalid tags and replayed
+sequences.
+
+Implementation: [audio encryption and replay protection](gemacast-core/src/audio/encryption.rs),
+[echo packets](gemacast-core/src/stream/echo.rs),
+[PCM chunk format](gemacast-core/src/audio/pcm_datagram.rs),
 [UDP sender](gemacast-core/src/stream/streamer/udp_audio_sender.rs),
 [send-age limit](gemacast-core/src/stream/streamer/captured_frame.rs),
 [reassembly](gemacast-core/src/stream/player/pcm_assembly.rs).
