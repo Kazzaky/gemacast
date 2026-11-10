@@ -227,7 +227,7 @@ mod tests {
             device_id: DeviceId("test-device-2".to_string()),
             source: AudioSource::Desktop,
         };
-        let (token, _) = authorizer.issue(req_body.device_id.clone()).unwrap();
+        let (token, generation) = authorizer.issue(req_body.device_id.clone()).unwrap();
 
         let request_task = tokio::spawn(async move {
             client
@@ -242,10 +242,12 @@ mod tests {
         match command_rx.recv().await.unwrap() {
             ControlCommand::ChangeSource {
                 device_id,
+                generation: observed_generation,
                 source,
                 response_tx,
             } => {
                 assert_eq!(device_id.0, "test-device-2");
+                assert_eq!(observed_generation, generation);
                 assert_eq!(source, AudioSource::Desktop);
                 let _ = response_tx.send(Ok(()));
             }
@@ -263,7 +265,7 @@ mod tests {
             device_id: DeviceId("test-device-3".to_string()),
             bitrate: Some(192000),
         };
-        let (token, _) = authorizer.issue(req_body.device_id.clone()).unwrap();
+        let (token, generation) = authorizer.issue(req_body.device_id.clone()).unwrap();
 
         let request_task = tokio::spawn(async move {
             client
@@ -278,10 +280,12 @@ mod tests {
         match command_rx.recv().await.unwrap() {
             ControlCommand::ChangeBitrate {
                 device_id,
+                generation: observed_generation,
                 bitrate,
                 response_tx,
             } => {
                 assert_eq!(device_id.0, "test-device-3");
+                assert_eq!(observed_generation, generation);
                 assert_eq!(bitrate, Some(192000));
                 let _ = response_tx.send(Ok(()));
             }
