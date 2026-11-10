@@ -304,6 +304,36 @@ def run_android_checks() -> None:
         raise ValidationError(
             f"Pinned Android NDK was not found at {ndk}. Install NDK 25.2.9519653 first."
         )
+    required_sdk_components = {
+        "CMake 3.22.1": Path(sdk) / "cmake" / "3.22.1",
+        "Android Build Tools 34.0.0": Path(sdk) / "build-tools" / "34.0.0",
+        "Android Platform 36": Path(sdk) / "platforms" / "android-36",
+    }
+    missing_components = [
+        name for name, path in required_sdk_components.items() if not path.is_dir()
+    ]
+    if missing_components:
+        raise ValidationError(
+            "Missing Android SDK components: "
+            + ", ".join(missing_components)
+            + ". Install the pinned versions documented in CONTRIBUTING.md."
+        )
+
+    bun = require_command("bun", "Install Bun 1.3.14 before building the Android APKs.")
+    bun_version = subprocess.run(
+        [bun, "--version"],
+        cwd=ROOT,
+        text=True,
+        stdout=subprocess.PIPE,
+        stderr=subprocess.PIPE,
+        check=False,
+    )
+    if bun_version.returncode != 0 or bun_version.stdout.strip() != BUN_VERSION:
+        raise ValidationError(
+            f"Android packaging requires Bun {BUN_VERSION}; found "
+            f"{bun_version.stdout.strip() or 'unknown'}."
+        )
+
     java = require_command("java", "Install JDK 17 and configure JAVA_HOME.")
     java_version = subprocess.run(
         [java, "-version"],
@@ -352,6 +382,7 @@ def run_android_checks() -> None:
         "WRY_ANDROID_PACKAGE": "com.apir.gemacast",
         "WRY_ANDROID_LIBRARY": "gemacast_mobile_lib",
         "WRY_ANDROID_KOTLIN_FILES_OUT_DIR": str(kotlin_output),
+        "BUILD_TOOLS_VERSION": "34.0.0",
     }
     if "JAVA_HOME" not in os.environ:
         java_home = Path(java).resolve().parent.parent
@@ -373,6 +404,23 @@ def run_android_checks() -> None:
         "Android JVM unit tests",
         gradle_command,
         cwd=android_project,
+        env=android_env,
+    )
+
+    mobile_dir = ROOT / "gemacast-mobile"
+    run(
+        "Android universal release APK build",
+        ["bun", "x", "tauri", "android", "build", "--apk"],
+        cwd=mobile_dir,
+        env=android_env,
+    )
+    run(
+        "Android ARM64 split release APK build",
+        [
+            "bun", "x", "tauri", "android", "build", "--apk",
+            "--target", "aarch64", "--split-per-abi",
+        ],
+        cwd=mobile_dir,
         env=android_env,
     )
 
