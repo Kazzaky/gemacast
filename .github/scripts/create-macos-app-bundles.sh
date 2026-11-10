@@ -11,11 +11,11 @@ for ARCH in x64:mac_x64 aarch64:mac_arm64; do
   ARCH_DIR="${ARCH##*:}"
 
   APP="Gemacast-${ARCH_NAME}.app"
+  rm -rf "$APP"
   mkdir -p "$APP/Contents/MacOS" "$APP/Contents/Resources"
 
-  # Binary + ADB
+  # Main desktop executable only.
   cp "$ARCH_DIR/gemacast-pc" "$APP/Contents/MacOS/"
-  [ -f "$ARCH_DIR/adb" ] && cp "$ARCH_DIR/adb" "$APP/Contents/MacOS/"
   chmod +x "$APP/Contents/MacOS/"*
 
   # Info.plist with version
