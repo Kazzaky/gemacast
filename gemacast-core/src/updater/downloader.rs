@@ -299,21 +299,21 @@ mod url_tests {
     #[test]
     fn accepts_only_https_release_assets_from_this_fork() {
         assert!(validate_artifact_url(
-            "https://github.com/Kazzaky/gemacast/releases/download/v0.6.0/gemacast-mobile-universal.apk"
+            "https://github.com/Kazzaky/gemacast/releases/download/v0.7.0/gemacast-mobile-universal.apk"
         ).is_ok());
     }
 
     #[test]
     fn rejects_http_artifact_urls() {
         assert!(validate_artifact_url(
-            "http://github.com/Kazzaky/gemacast/releases/download/v0.6.0/app.apk"
+            "http://github.com/Kazzaky/gemacast/releases/download/v0.7.0/app.apk"
         ).is_err());
     }
 
     #[test]
     fn accepts_only_https_github_release_redirect_hosts() {
         for url in [
-            "https://github.com/Kazzaky/gemacast/releases/download/v0.6.0/app.apk",
+            "https://github.com/Kazzaky/gemacast/releases/download/v0.7.0/app.apk",
             "https://release-assets.githubusercontent.com/github-production-release-asset/123/app.apk",
         ] {
             assert!(approved_redirect_url(&reqwest::Url::parse(url).unwrap()));
@@ -344,10 +344,10 @@ mod url_tests {
     #[test]
     fn rejects_other_hosts_and_repositories() {
         for url in [
-            "https://example.com/Kazzaky/gemacast/releases/download/v0.6.0/app.apk",
-            "https://github.com/someone-else/gemacast/releases/download/v0.6.0/app.apk",
-            "https://user@github.com/Kazzaky/gemacast/releases/download/v0.6.0/app.apk",
-            "https://github.com:444/Kazzaky/gemacast/releases/download/v0.6.0/app.apk",
+            "https://example.com/Kazzaky/gemacast/releases/download/v0.7.0/app.apk",
+            "https://github.com/someone-else/gemacast/releases/download/v0.7.0/app.apk",
+            "https://user@github.com/Kazzaky/gemacast/releases/download/v0.7.0/app.apk",
+            "https://github.com:444/Kazzaky/gemacast/releases/download/v0.7.0/app.apk",
         ] {
             assert!(validate_artifact_url(url).is_err(), "accepted {url}");
         }
