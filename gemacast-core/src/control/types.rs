@@ -87,7 +87,7 @@ pub struct SourcesResponse {
     pub capabilities: crate::domain::types::StreamerCapabilities,
 }
 
-#[derive(Debug, Clone, Serialize, Deserialize)]
+#[derive(Clone, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase")]
 pub struct PresenceResponse {
     pub device_id: DeviceId,
@@ -117,6 +117,34 @@ pub struct PresenceResponse {
 
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub pc_output_volume: Option<f32>,
+}
+
+impl std::fmt::Debug for PresenceResponse {
+    fn fmt(&self, formatter: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        formatter
+            .debug_struct("PresenceResponse")
+            .field("device_id", &self.device_id)
+            .field("streamer_name", &self.streamer_name)
+            .field("is_offline", &self.is_offline)
+            .field("pc_network_link", &self.pc_network_link)
+            .field("device_registered", &self.device_registered)
+            .field(
+                "session_token",
+                &self.session_token.as_ref().map(|_| "[REDACTED]"),
+            )
+            .field("session_generation", &self.session_generation)
+            .field(
+                "pending_request_id",
+                &self.pending_request_id.as_ref().map(|_| "[REDACTED]"),
+            )
+            .field("device_auth_challenge", &self.device_auth_challenge)
+            .field(
+                "pc_certificate_fingerprint",
+                &self.pc_certificate_fingerprint,
+            )
+            .field("pc_output_volume", &self.pc_output_volume)
+            .finish()
+    }
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -154,6 +182,34 @@ mod tests {
     use crate::domain::types::{
         AudioSource, ConnectionMode, DeviceId, JitterConfig, StreamerCapabilities,
     };
+
+    mod presence_response_debug {
+        use super::*;
+
+        #[test]
+        fn debug_output_must_redact_session_tokens_and_pending_request_ids() {
+            let token = "secret-session-token";
+            let request_id = "secret-pending-request";
+            let response = PresenceResponse {
+                device_id: DeviceId("phone-1".into()),
+                streamer_name: "PC".into(),
+                is_offline: false,
+                pc_network_link: None,
+                device_registered: Some(true),
+                session_token: Some(token.into()),
+                session_generation: Some(crate::control::SessionGeneration(1)),
+                pending_request_id: Some(request_id.into()),
+                device_auth_challenge: None,
+                pc_certificate_fingerprint: Some("ab".repeat(32)),
+                pc_output_volume: None,
+            };
+
+            let debug = format!("{response:?}");
+            assert!(!debug.contains(token));
+            assert!(!debug.contains(request_id));
+            assert_eq!(debug.matches("[REDACTED]").count(), 2);
+        }
+    }
 
     mod connect_req {
         use super::*;
