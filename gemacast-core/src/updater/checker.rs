@@ -1,9 +1,14 @@
 use reqwest::Client;
+use std::time::Duration;
 
 use super::AvailableUpdate;
+use super::downloader::approved_redirect_url;
 use super::manifest::ReleaseManifest;
 use super::retry::RetryPolicy;
 use crate::domain::error::UpdaterError;
+
+const MAX_MANIFEST_BYTES: usize = 64 * 1024;
+const MAX_MANIFEST_REDIRECTS: usize = 5;
 
 /// Latest release manifest published by the personal Gemacast fork.
 pub const UPDATER_URL: &str =
@@ -17,9 +22,29 @@ pub struct UpdateChecker {
 
 impl UpdateChecker {
     pub fn latest_release() -> Self {
+        let http_client = Client::builder()
+            .connect_timeout(Duration::from_secs(5))
+            .timeout(Duration::from_secs(20))
+            .redirect(reqwest::redirect::Policy::custom(|attempt| {
+                if attempt.previous().len() >= MAX_MANIFEST_REDIRECTS {
+                    return attempt.error(std::io::Error::other(
+                        "too many updater manifest redirects",
+                    ));
+                }
+                if approved_redirect_url(attempt.url()) {
+                    attempt.follow()
+                } else {
+                    attempt.error(std::io::Error::other(
+                        "updater manifest redirect must remain HTTPS on an approved GitHub host",
+                    ))
+                }
+            }))
+            .build()
+            .expect("failed to build restricted updater manifest HTTP client");
+
         Self {
             manifest_url: UPDATER_URL.to_string(),
-            http_client: Client::new(),
+            http_client,
             retry_policy: RetryPolicy::for_network_requests(),
         }
     }
@@ -56,8 +81,8 @@ impl UpdateChecker {
         ReleaseManifest::from_json(&manifest_json)
     }
 
-    async fn fetch_manifest_json(&self) -> Result<String, UpdaterError> {
-        let response = self
+    async fn fetch_manifest_json(&self) -> Result<Vec<u8>, UpdaterError> {
+        let mut response = self
             .http_client
             .get(&self.manifest_url)
             .send()
@@ -72,10 +97,30 @@ impl UpdateChecker {
                 None => UpdaterError::ManifestRequestFailed(error),
             })?;
 
-        response
-            .text()
+        if response
+            .content_length()
+            .is_some_and(|length| length > MAX_MANIFEST_BYTES as u64)
+        {
+            return Err(UpdaterError::ManifestTooLarge {
+                max_bytes: MAX_MANIFEST_BYTES,
+            });
+        }
+
+        let mut manifest = Vec::new();
+        while let Some(chunk) = response
+            .chunk()
             .await
-            .map_err(UpdaterError::ManifestBodyReadFailed)
+            .map_err(UpdaterError::ManifestBodyReadFailed)?
+        {
+            if manifest.len().saturating_add(chunk.len()) > MAX_MANIFEST_BYTES {
+                return Err(UpdaterError::ManifestTooLarge {
+                    max_bytes: MAX_MANIFEST_BYTES,
+                });
+            }
+            manifest.extend_from_slice(&chunk);
+        }
+
+        Ok(manifest)
     }
 }
 
