@@ -67,6 +67,44 @@ jobs:
       - name: Bun Test
         working-directory: ./gemacast-mobile
         run: bun test
+      - name: Install website dependencies
+        working-directory: ./web
+        run: bun install --frozen-lockfile
+      - name: Website production build
+        working-directory: ./web
+        run: bun run build
+
+  packaging-scripts:
+    name: Release Shell Script Syntax
+    runs-on: ubuntu-22.04
+    steps:
+      - uses: actions/checkout@v6
+      - name: Validate release shell scripts
+        run: |
+          for script in .github/scripts/*.sh; do
+            bash -n "$script"
+          done
+
+  packaging-scripts-windows:
+    name: Release PowerShell Script Syntax
+    runs-on: windows-latest
+    steps:
+      - uses: actions/checkout@v6
+      - name: Validate release PowerShell scripts
+        shell: pwsh
+        run: |
+          $ErrorActionPreference = 'Stop'
+          Get-ChildItem .github/scripts -Filter '*.ps1' | ForEach-Object {
+            $tokens = $null
+            $parseErrors = $null
+            [System.Management.Automation.Language.Parser]::ParseFile(
+              $_.FullName, [ref]$tokens, [ref]$parseErrors
+            ) | Out-Null
+            if ($parseErrors.Count -gt 0) {
+              $parseErrors | ForEach-Object { Write-Error $_ }
+              throw "PowerShell syntax check failed: $($_.FullName)"
+            }
+          }
 
   backend:
     name: Backend Checks (${{ matrix.name }})
@@ -238,6 +276,8 @@ jobs:
       - audit
       - frontend
       - backend
+      - packaging-scripts
+      - packaging-scripts-windows
     runs-on: ubuntu-22.04
     steps:
       - name: Require all CI jobs to pass
@@ -245,7 +285,11 @@ jobs:
           AUDIT_RESULT: ${{ needs.audit.result }}
           FRONTEND_RESULT: ${{ needs.frontend.result }}
           BACKEND_RESULT: ${{ needs.backend.result }}
+          PACKAGING_SHELL_RESULT: ${{ needs.packaging-scripts.result }}
+          PACKAGING_POWERSHELL_RESULT: ${{ needs.packaging-scripts-windows.result }}
         run: |
           test "$AUDIT_RESULT" = success
           test "$FRONTEND_RESULT" = success
           test "$BACKEND_RESULT" = success
+          test "$PACKAGING_SHELL_RESULT" = success
+          test "$PACKAGING_POWERSHELL_RESULT" = success
