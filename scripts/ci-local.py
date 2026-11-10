@@ -456,7 +456,7 @@ def main() -> int:
     parser.add_argument(
         "--android",
         action="store_true",
-        help="Also run the Android ARM64 Clippy check and Android JVM unit tests.",
+        help="Also run Android ARM64 Clippy, JVM unit tests, and universal plus ARM64 release APK builds.",
     )
     args = parser.parse_args()
 
