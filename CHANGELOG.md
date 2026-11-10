@@ -1,5 +1,23 @@
 # Changelog
 
+## 0.7.0 (unreleased)
+
+This fork release introduces a coordinated PC/Android protocol update. Install
+the matching PC and Android builds together.
+
+### Security
+
+- Protect UDP audio and RTT echo packets with per-session authenticated encryption.
+- Authenticate control sessions over certificate-pinned TLS and signed device pairing.
+- Restrict updater downloads to this fork's GitHub Releases and verify SHA-256 before
+  publishing an APK to the install path.
+- Remove runtime ADB dependency; USB transport uses Android USB tethering.
+
+### Maintenance
+
+- Refresh and audit Rust dependencies, including the pinned glib security backport.
+- Add a local CI validation runner for hosts where GitHub Actions is unavailable.
+
 ## [0.6.0](https://github.com/apirJS/gemacast/compare/v0.5.3...v0.6.0) (2026-09-25)
 
 
