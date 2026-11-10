@@ -235,14 +235,29 @@ def run_script_syntax_checks() -> None:
     scripts_dir = ROOT / ".github" / "scripts"
     shell_scripts = sorted(scripts_dir.glob("*.sh"))
     bash = shutil.which("bash")
-    if shell_scripts and bash:
+    if not bash and platform.system() == "Windows":
+        git_executable = shutil.which("git")
+        if git_executable:
+            git_path = Path(git_executable).resolve()
+            for parent in git_path.parents:
+                candidates = (
+                    parent / "bin" / "bash.exe",
+                    parent / "usr" / "bin" / "bash.exe",
+                )
+                bash = next((str(candidate) for candidate in candidates if candidate.is_file()), None)
+                if bash:
+                    break
+    if shell_scripts and not bash:
+        raise ValidationError(
+            "Bash is required to syntax-check .github/scripts/*.sh. "
+            "On Windows, install Git for Windows (including Git Bash)."
+        )
+    if shell_scripts:
         for script in shell_scripts:
             run(
                 f"Shell syntax: {script.relative_to(ROOT)}",
                 [bash, "-n", str(script)],
             )
-    elif shell_scripts and platform.system() != "Windows":
-        raise ValidationError("bash is required to syntax-check .github/scripts/*.sh.")
 
     powershell_scripts = sorted(scripts_dir.glob("*.ps1"))
     powershell = shutil.which("pwsh") or shutil.which("powershell")
