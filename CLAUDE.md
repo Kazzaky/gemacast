@@ -115,5 +115,7 @@ Repository instructions for changes to Gemacast. Architecture is documented in
   development CSP. Validate CSP changes in the native app.
 - The PC macOS bundle uses `macos/Info.plist`; Screen Recording and Microphone
   permissions are separate. Preserve the Swift runtime linker configuration.
-- Versions are managed by release-please from the root `Cargo.toml`; release
-  automation synchronizes frontend and Tauri versions.
+- Version metadata is synchronized manually across the root `Cargo.toml`,
+  `gemacast-mobile/package.json`, `gemacast-mobile/src-tauri/tauri.conf.json`,
+  and `version.txt`. CI and release workflows are manual-only; a release run
+  consumes an existing version tag.
