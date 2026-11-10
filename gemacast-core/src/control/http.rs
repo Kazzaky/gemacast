@@ -189,6 +189,40 @@ mod tests {
     }
 
     #[tokio::test]
+    async fn authenticated_connect_should_carry_the_current_session_generation() {
+        let (base_url, mut command_rx, authorizer) = spawn_test_server().await;
+        let device_id = DeviceId("authenticated-device".into());
+        let (token, generation) = authorizer.issue(device_id.clone()).unwrap();
+        let request_body = connect_request(&device_id.0);
+
+        let request_task = tokio::spawn(async move {
+            reqwest::Client::new()
+                .post(format!("{base_url}/connect"))
+                .bearer_auth(token)
+                .json(&request_body)
+                .send()
+                .await
+                .unwrap()
+        });
+
+        match command_rx.recv().await.unwrap() {
+            ControlCommand::Connect {
+                device_id: received_device,
+                authorized_generation,
+                response_tx,
+                ..
+            } => {
+                assert_eq!(received_device, device_id);
+                assert_eq!(authorized_generation, Some(generation));
+                let _ = response_tx.send(Ok(presence(received_device, None)));
+            }
+            _ => panic!("Expected ControlCommand::Connect"),
+        }
+
+        assert!(request_task.await.unwrap().status().is_success());
+    }
+
+    #[tokio::test]
     async fn connect_endpoint_should_return_accepted_for_pending_approval() {
         let (base_url, mut command_rx, _) = spawn_test_server().await;
         let client = reqwest::Client::new();
