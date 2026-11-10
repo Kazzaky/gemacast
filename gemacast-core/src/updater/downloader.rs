@@ -10,7 +10,7 @@ use crate::domain::error::UpdaterError;
 
 const RELEASE_PATH_PREFIX: &str = "/Kazzaky/gemacast/releases/download/";
 
-fn approved_redirect_url(url: &reqwest::Url) -> bool {
+pub(crate) fn approved_redirect_url(url: &reqwest::Url) -> bool {
     url.scheme() == "https"
         && url.port_or_known_default() == Some(443)
         && url.username().is_empty()
