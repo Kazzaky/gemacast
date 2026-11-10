@@ -188,6 +188,7 @@ def run_frontend() -> None:
     run("Prettier format check", [bun, "run", "format:check"], cwd=mobile_dir)
     run("ESLint", [bun, "run", "lint"], cwd=mobile_dir)
     run("TypeScript typecheck", [bun, "run", "typecheck"], cwd=mobile_dir)
+    run("Frontend production build", [bun, "run", "build"], cwd=mobile_dir)
     run("Bun unit tests", [bun, "test"], cwd=mobile_dir)
 
 
@@ -212,6 +213,7 @@ def run_rust_checks() -> None:
         "Clippy (workspace, all targets, warnings are errors)",
         ["cargo", "clippy", "--workspace", "--all-targets", "--", "-D", "warnings"],
     )
+    run("Build workspace (host target)", ["cargo", "build", "--workspace"])
     run_host_rust_tests()
 
 
