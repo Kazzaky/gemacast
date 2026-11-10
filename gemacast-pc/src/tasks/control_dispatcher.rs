@@ -67,23 +67,177 @@ impl ControlDispatcher {
                                 let _ = response_tx
                                     .send(Err("LAN device authentication proof is missing".into()));
                                 return;
+                                }
+                        };
+                        let identity = match self.device_auth.pending_pairing(
+                            &request_id,
+                            &device_id,
+                            &auth.public_key,
+                        ) {
+                            Some(identity) => identity,
+                            None => {
+                                let _ = response_tx.send(Err(format!(
+                                    "connection request {request_id} does not match this device key"
+                                )));
+                                return;
                             }
-                    };
-                    let identity = match self.device_auth.pending_pairing(
-                        &request_id,
-                        &device_id,
-                        &auth.public_key,
-                    ) {
-                        Some(identity) => identity,
-                        None => {
-                            let _ = response_tx.send(Err(format!(
-                                "connection request {request_id} does not match this device key"
-                            )));
+                        };
+                        match self.authorizer.pending_status(&request_id, &device_id) {
+                            Some(gemacast_core::control::PendingApprovalStatus::Pending) => {
+                                let _ = response_tx.send(Ok(PresenceResponse {
+                                    device_id: self.streamer_id.clone(),
+                                    streamer_name: self.streamer_name.clone(),
+                                    is_offline: false,
+                                    pc_network_link: None,
+                                    device_registered: Some(false),
+                                    session_token: None,
+                                    session_generation: None,
+                                    pending_request_id: Some(request_id),
+                                    device_auth_challenge: None,
+                                    pc_certificate_fingerprint: Some(
+                                        self.pc_certificate_fingerprint.clone(),
+                                    ),
+                                    pc_output_volume: read_pc_output_volume(),
+                                }));
+                                return;
+                            }
+                            Some(gemacast_core::control::PendingApprovalStatus::Approved) => {
+                                (Some(request_id), Some(identity))
+                            }
+                            Some(gemacast_core::control::PendingApprovalStatus::Rejected) => {
+                                self.authorizer.remove_pending(&request_id);
+                                self.device_auth.remove_pending_pairing(&request_id);
+                                let _ = response_tx.send(Err(format!(
+                                    "connection request {request_id} was rejected on the PC"
+                                )));
+                                return;
+                            }
+                            None => {
+                                let _ = response_tx.send(Err(format!(
+                                    "connection request {request_id} is invalid or expired"
+                                )));
+                                return;
+                            }
+                        }
+                    } else {
+                        let Some(auth) = device_auth else {
+                            let _ = response_tx
+                                .send(Err("LAN device authentication identity is missing".into()));
+                            return;
+                        };
+                        if auth.challenge_id.is_none() && auth.signature.is_none() {
+                            let requires_approval = !self
+                                .trusted_devices
+                                .is_trusted(&device_id, &auth.public_key);
+                            let challenge = match self.device_auth.begin(
+                                device_id.clone(),
+                                self.streamer_id.clone(),
+                                self.pc_certificate_fingerprint.clone(),
+                                requires_approval,
+                                auth.public_key,
+                                auth.phone_nonce,
+                            ) {
+                                Ok(challenge) => challenge,
+                                Err(error) => {
+                                    let _ = response_tx.send(Err(error));
+                                    return;
+                                }
+                            };
+                            let _ = response_tx.send(Ok(PresenceResponse {
+                                device_id: self.streamer_id.clone(),
+                                streamer_name: self.streamer_name.clone(),
+                                is_offline: false,
+                                pc_network_link: None,
+                                device_registered: Some(false),
+                                session_token: None,
+                                session_generation: None,
+                                pending_request_id: None,
+                                device_auth_challenge: Some(challenge),
+                                pc_certificate_fingerprint: Some(
+                                    self.pc_certificate_fingerprint.clone(),
+                                ),
+                                pc_output_volume: read_pc_output_volume(),
+                            }));
                             return;
                         }
-                    };
-                    match self.authorizer.pending_status(&request_id, &device_id) {
-                        Some(gemacast_core::control::PendingApprovalStatus::Pending) => {
+                        let identity = match self.device_auth.verify(
+                            &device_id,
+                            &self.streamer_id,
+                            &self.pc_certificate_fingerprint,
+                            &auth,
+                        ) {
+                            Ok(identity) => identity,
+                            Err(error) => {
+                                let _ = response_tx.send(Err(error));
+                                return;
+                            }
+                        };
+                        let already_trusted = self
+                            .trusted_devices
+                            .is_trusted(&device_id, &identity.public_key);
+                        if already_trusted && auth.phone_confirmation.is_none() {
+                            (None, None)
+                        } else {
+                            match auth.phone_confirmation {
+                                Some(true) => {}
+                                Some(false) => {
+                                    let _ = response_tx
+                                        .send(Err("pairing was cancelled on the phone".into()));
+                                    return;
+                                }
+                                None => {
+                                    let _ = response_tx
+                                        .send(Err("phone confirmation is required for pairing".into()));
+                                    return;
+                                }
+                            }
+                            let replaces_existing_identity = self
+                                .trusted_devices
+                                .public_key(&device_id)
+                                .is_some_and(|trusted_key| trusted_key != identity.public_key);
+                            if replaces_existing_identity {
+                                tracing::warn!(
+                                    ?device_id,
+                                    "Device presented a new public key; waiting for explicit re-pair approval"
+                                );
+                            }
+                            let request_id = match self.authorizer.create_pending(device_id.clone()) {
+                                Ok(request_id) => request_id,
+                                Err(error) => {
+                                    let _ = response_tx.send(Err(error));
+                                    return;
+                                }
+                            };
+                            if let Err(error) = self.device_auth.hold_pending_pairing(
+                                request_id.clone(),
+                                device_id.clone(),
+                                identity.clone(),
+                            ) {
+                                self.authorizer.remove_pending(&request_id);
+                                let _ = response_tx.send(Err(error));
+                                return;
+                            }
+                            let tray = self.tray.clone();
+                            let authorizer = self.authorizer.clone();
+                            let approval_device_id = device_id.clone();
+                            let approval_device_name = device_name.clone();
+                            let approval_request_id = request_id.clone();
+                            let key_fingerprint = identity.fingerprint.clone();
+                            let pairing_code = identity.pairing_code.clone();
+                            tokio::spawn(async move {
+                                let approved = tray
+                                    .request_connection_approval(ConnectionApprovalRequest {
+                                        request_id: approval_request_id.clone(),
+                                        device_id: approval_device_id,
+                                        name: approval_device_name,
+                                        addr: remote_addr,
+                                        key_fingerprint,
+                                        pairing_code,
+                                        replaces_existing_identity,
+                                    })
+                                    .await;
+                                authorizer.resolve_pending(&approval_request_id, approved);
+                            });
                             let _ = response_tx.send(Ok(PresenceResponse {
                                 device_id: self.streamer_id.clone(),
                                 streamer_name: self.streamer_name.clone(),
@@ -101,160 +255,6 @@ impl ControlDispatcher {
                             }));
                             return;
                         }
-                        Some(gemacast_core::control::PendingApprovalStatus::Approved) => {
-                            (Some(request_id), Some(identity))
-                        }
-                        Some(gemacast_core::control::PendingApprovalStatus::Rejected) => {
-                            self.authorizer.remove_pending(&request_id);
-                            self.device_auth.remove_pending_pairing(&request_id);
-                            let _ = response_tx.send(Err(format!(
-                                "connection request {request_id} was rejected on the PC"
-                            )));
-                            return;
-                        }
-                        None => {
-                            let _ = response_tx.send(Err(format!(
-                                "connection request {request_id} is invalid or expired"
-                            )));
-                            return;
-                        }
-                    }
-                } else {
-                    let Some(auth) = device_auth else {
-                        let _ = response_tx
-                            .send(Err("LAN device authentication identity is missing".into()));
-                        return;
-                    };
-                    if auth.challenge_id.is_none() && auth.signature.is_none() {
-                        let requires_approval = !self
-                            .trusted_devices
-                            .is_trusted(&device_id, &auth.public_key);
-                        let challenge = match self.device_auth.begin(
-                            device_id.clone(),
-                            self.streamer_id.clone(),
-                            self.pc_certificate_fingerprint.clone(),
-                            requires_approval,
-                            auth.public_key,
-                            auth.phone_nonce,
-                        ) {
-                            Ok(challenge) => challenge,
-                            Err(error) => {
-                                let _ = response_tx.send(Err(error));
-                                return;
-                            }
-                        };
-                        let _ = response_tx.send(Ok(PresenceResponse {
-                            device_id: self.streamer_id.clone(),
-                            streamer_name: self.streamer_name.clone(),
-                            is_offline: false,
-                            pc_network_link: None,
-                            device_registered: Some(false),
-                            session_token: None,
-                            session_generation: None,
-                            pending_request_id: None,
-                            device_auth_challenge: Some(challenge),
-                            pc_certificate_fingerprint: Some(
-                                self.pc_certificate_fingerprint.clone(),
-                            ),
-                            pc_output_volume: read_pc_output_volume(),
-                        }));
-                        return;
-                    }
-                    let identity = match self.device_auth.verify(
-                        &device_id,
-                        &self.streamer_id,
-                        &self.pc_certificate_fingerprint,
-                        &auth,
-                    ) {
-                        Ok(identity) => identity,
-                        Err(error) => {
-                            let _ = response_tx.send(Err(error));
-                            return;
-                        }
-                    };
-                    let already_trusted = self
-                        .trusted_devices
-                        .is_trusted(&device_id, &identity.public_key);
-                    if already_trusted && auth.phone_confirmation.is_none() {
-                        (None, None)
-                    } else {
-                        match auth.phone_confirmation {
-                            Some(true) => {}
-                            Some(false) => {
-                                let _ = response_tx
-                                    .send(Err("pairing was cancelled on the phone".into()));
-                                return;
-                            }
-                            None => {
-                                let _ = response_tx
-                                    .send(Err("phone confirmation is required for pairing".into()));
-                                return;
-                            }
-                        }
-                        let replaces_existing_identity = self
-                            .trusted_devices
-                            .public_key(&device_id)
-                            .is_some_and(|trusted_key| trusted_key != identity.public_key);
-                        if replaces_existing_identity {
-                            tracing::warn!(
-                                ?device_id,
-                                "Device presented a new public key; waiting for explicit re-pair approval"
-                            );
-                        }
-                        let request_id = match self.authorizer.create_pending(device_id.clone()) {
-                            Ok(request_id) => request_id,
-                            Err(error) => {
-                                let _ = response_tx.send(Err(error));
-                                return;
-                            }
-                        };
-                        if let Err(error) = self.device_auth.hold_pending_pairing(
-                            request_id.clone(),
-                            device_id.clone(),
-                            identity.clone(),
-                        ) {
-                            self.authorizer.remove_pending(&request_id);
-                            let _ = response_tx.send(Err(error));
-                            return;
-                        }
-                        let tray = self.tray.clone();
-                        let authorizer = self.authorizer.clone();
-                        let approval_device_id = device_id.clone();
-                        let approval_device_name = device_name.clone();
-                        let approval_request_id = request_id.clone();
-                        let key_fingerprint = identity.fingerprint.clone();
-                        let pairing_code = identity.pairing_code.clone();
-                        tokio::spawn(async move {
-                            let approved = tray
-                                .request_connection_approval(ConnectionApprovalRequest {
-                                    request_id: approval_request_id.clone(),
-                                    device_id: approval_device_id,
-                                    name: approval_device_name,
-                                    addr: remote_addr,
-                                    key_fingerprint,
-                                    pairing_code,
-                                    replaces_existing_identity,
-                                })
-                                .await;
-                            authorizer.resolve_pending(&approval_request_id, approved);
-                        });
-                        let _ = response_tx.send(Ok(PresenceResponse {
-                            device_id: self.streamer_id.clone(),
-                            streamer_name: self.streamer_name.clone(),
-                            is_offline: false,
-                            pc_network_link: None,
-                            device_registered: Some(false),
-                            session_token: None,
-                            session_generation: None,
-                            pending_request_id: Some(request_id),
-                            device_auth_challenge: None,
-                            pc_certificate_fingerprint: Some(
-                                self.pc_certificate_fingerprint.clone(),
-                            ),
-                            pc_output_volume: read_pc_output_volume(),
-                        }));
-                        return;
-                    }
                 };
 
                 let pending_session = match self.authorizer.prepare(device_id.clone()) {
