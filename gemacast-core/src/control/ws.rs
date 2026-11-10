@@ -7,15 +7,25 @@ use crate::ports::process_lister::ProcessLister;
 use axum::extract::ws::{Message, WebSocket};
 use futures::SinkExt;
 use futures::stream::StreamExt;
+use std::time::Duration;
 use tokio::sync::mpsc;
 
 pub async fn handle_ws<P: ProcessLister + 'static>(
-    socket: WebSocket,
+    mut socket: WebSocket,
     device_id: DeviceId,
     generation: SessionGeneration,
     state: ControlServerState<P>,
 ) {
+    // The HTTP upgrade and WebSocket task start asynchronously. A reconnect may
+    // rotate the token between those two points; never register that stale socket.
+    if !state.authorizer.is_current(&device_id, generation) {
+        let _ = socket.close().await;
+        return;
+    }
+
     let (mut ws_sender, mut ws_receiver) = socket.split();
+    let mut session_check = tokio::time::interval(Duration::from_millis(250));
+    session_check.set_missed_tick_behavior(tokio::time::MissedTickBehavior::Skip);
     let (event_tx, event_rx) = mpsc::channel::<WsEvent>(32);
     let mut event_rx = event_rx;
 
@@ -26,7 +36,16 @@ pub async fn handle_ws<P: ProcessLister + 'static>(
 
     loop {
         tokio::select! {
+            _ = session_check.tick() => {
+                if !state.authorizer.is_current(&device_id, generation) {
+                    tracing::debug!("Closing stale WebSocket session for device {}", device_id);
+                    break;
+                }
+            }
             msg_result = ws_receiver.next() => {
+                if !state.authorizer.is_current(&device_id, generation) {
+                    break;
+                }
                 let Some(msg_result) = msg_result else {
                     break;
                 };
@@ -49,6 +68,12 @@ pub async fn handle_ws<P: ProcessLister + 'static>(
                 }
             }
             event = event_rx.recv() => {
+                // The event registry is keyed by device ID, but the session is
+                // keyed by both device ID and generation. Do not leak queued
+                // events to a socket whose bearer token has been rotated/revoked.
+                if !state.authorizer.is_current(&device_id, generation) {
+                    break;
+                }
                 let Some(event) = event else {
                     break;
                 };
@@ -137,6 +162,9 @@ async fn handle_ws_command<P: ProcessLister + 'static>(
     generation: SessionGeneration,
     state: &ControlServerState<P>,
 ) -> Result<(), String> {
+    if !state.authorizer.is_current(device_id, generation) {
+        return Err("session is no longer active".into());
+    }
     let command: WsCommand =
         serde_json::from_str(text).map_err(|e| format!("Failed to parse WsCommand: {}", e))?;
 
