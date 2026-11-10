@@ -41,10 +41,6 @@ pub(crate) struct ReleaseManifest {
 }
 
 impl ReleaseManifest {
-    pub(crate) fn from_json(json: &str) -> Result<Self, UpdaterError> {
-        serde_json::from_str(json).map_err(UpdaterError::ManifestParseFailed)
-    }
-
     pub(crate) fn from_bytes(bytes: &[u8]) -> Result<Self, UpdaterError> {
         serde_json::from_slice(bytes).map_err(UpdaterError::ManifestParseFailed)
     }
@@ -132,7 +128,7 @@ mod tests {
             }}"#
         );
 
-        ReleaseManifest::from_json(&json).unwrap()
+        ReleaseManifest::from_bytes(json.as_bytes()).unwrap()
     }
 
     #[test]
