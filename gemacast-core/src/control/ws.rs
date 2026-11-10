@@ -230,6 +230,8 @@ mod tests {
         let (command_tx, mut command_rx) = tokio::sync::mpsc::channel(1);
         let (event_tx, mut event_rx) = tokio::sync::mpsc::channel(1);
         let device_id = DeviceId("phone-1".into());
+        let authorizer = crate::control::SessionAuthorizer::default();
+        let (_, generation) = authorizer.issue(device_id.clone()).unwrap();
         let ws_connections = Arc::new(Mutex::new(HashMap::from([(device_id.clone(), event_tx)])));
         let state = ControlServerState {
             command_tx,
@@ -238,10 +240,9 @@ mod tests {
             streamer_name: "PC".into(),
             ws_connections,
             process_lister: EmptyProcessLister,
-            authorizer: crate::control::SessionAuthorizer::default(),
+            authorizer,
             pc_certificate_fingerprint: "certificate".into(),
         };
-        let generation = SessionGeneration(7);
         let heartbeat = serde_json::to_string(&WsCommand::Heartbeat).unwrap();
 
         handle_ws_command(&heartbeat, &device_id, generation, &state)
@@ -259,6 +260,34 @@ mod tests {
             event_rx.recv().await,
             Some(WsEvent::HeartbeatAcknowledged)
         ));
+    }
+
+    #[tokio::test]
+    async fn stale_websocket_generation_must_not_send_commands_or_acknowledgements() {
+        let (command_tx, mut command_rx) = tokio::sync::mpsc::channel(1);
+        let (event_tx, mut event_rx) = tokio::sync::mpsc::channel(1);
+        let device_id = DeviceId("phone-1".into());
+        let authorizer = crate::control::SessionAuthorizer::default();
+        let (_, stale_generation) = authorizer.issue(device_id.clone()).unwrap();
+        let _ = authorizer.issue(device_id.clone()).unwrap();
+        let ws_connections = Arc::new(Mutex::new(HashMap::from([(device_id.clone(), event_tx)])));
+        let state = ControlServerState {
+            command_tx,
+            is_broadcasting: Arc::new(AtomicBool::new(true)),
+            streamer_id: DeviceId("pc-1".into()),
+            streamer_name: "PC".into(),
+            ws_connections,
+            process_lister: EmptyProcessLister,
+            authorizer,
+            pc_certificate_fingerprint: "certificate".into(),
+        };
+        let heartbeat = serde_json::to_string(&WsCommand::Heartbeat).unwrap();
+
+        let result = handle_ws_command(&heartbeat, &device_id, stale_generation, &state).await;
+
+        assert_eq!(result.unwrap_err(), "session is no longer active");
+        assert!(command_rx.try_recv().is_err());
+        assert!(event_rx.try_recv().is_err());
     }
 
     #[test]
