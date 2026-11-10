@@ -233,33 +233,67 @@ def run_frontend() -> None:
 
 def run_script_syntax_checks() -> None:
     scripts_dir = ROOT / ".github" / "scripts"
-    shell_scripts = sorted(scripts_dir.glob("*.sh"))
-    bash = shutil.which("bash")
-    if not bash and platform.system() == "Windows":
+    bash_scripts = sorted(
+        [*scripts_dir.glob("*.sh"), ROOT / "docker" / "android-ci.sh"]
+    )
+    posix_scripts = [
+        ROOT / "docker" / "ci.sh",
+        ROOT / "docker" / "entrypoint.sh",
+        ROOT / "linux" / "deb-postinst.sh",
+        ROOT / "linux" / "deb-postrm.sh",
+    ]
+
+    def find_git_tool(name: str, windows_name: str) -> str | None:
+        resolved = shutil.which(name)
+        if resolved or platform.system() != "Windows":
+            return resolved
         git_executable = shutil.which("git")
-        if git_executable:
-            git_path = Path(git_executable).resolve()
-            for parent in git_path.parents:
-                candidates = (
-                    parent / "bin" / "bash.exe",
-                    parent / "usr" / "bin" / "bash.exe",
-                )
-                bash = next((str(candidate) for candidate in candidates if candidate.is_file()), None)
-                if bash:
-                    break
-    if shell_scripts and not bash:
+        if not git_executable:
+            return None
+        for parent in Path(git_executable).resolve().parents:
+            candidates = (
+                parent / "bin" / windows_name,
+                parent / "usr" / "bin" / windows_name,
+            )
+            resolved = next(
+                (str(candidate) for candidate in candidates if candidate.is_file()),
+                None,
+            )
+            if resolved:
+                return resolved
+        return None
+
+    bash = find_git_tool("bash", "bash.exe")
+    if bash_scripts and not bash:
         raise ValidationError(
-            "Bash is required to syntax-check .github/scripts/*.sh. "
+            "Bash is required to syntax-check the repository shell scripts. "
             "On Windows, install Git for Windows (including Git Bash)."
         )
-    if shell_scripts:
-        for script in shell_scripts:
-            run(
-                f"Shell syntax: {script.relative_to(ROOT)}",
-                [bash, "-n", str(script)],
-            )
+    for script in bash_scripts:
+        if not script.is_file():
+            raise ValidationError(f"Expected shell script is missing: {script.relative_to(ROOT)}")
+        run(
+            f"Bash syntax: {script.relative_to(ROOT)}",
+            [bash, "-n", str(script)],
+        )
 
-    powershell_scripts = sorted(scripts_dir.glob("*.ps1"))
+    sh = find_git_tool("sh", "sh.exe")
+    if posix_scripts and not sh:
+        raise ValidationError(
+            "POSIX sh is required to syntax-check Docker and Debian maintainer scripts. "
+            "Git for Windows includes it under usr/bin."
+        )
+    for script in posix_scripts:
+        if not script.is_file():
+            raise ValidationError(f"Expected POSIX shell script is missing: {script.relative_to(ROOT)}")
+        run(
+            f"POSIX shell syntax: {script.relative_to(ROOT)}",
+            [sh, "-n", str(script)],
+        )
+
+    powershell_scripts = sorted(
+        [*scripts_dir.glob("*.ps1"), *(ROOT / "docker").glob("*.ps1")]
+    )
     powershell = shutil.which("pwsh") or shutil.which("powershell")
     if powershell and powershell_scripts:
         parser_command = (
