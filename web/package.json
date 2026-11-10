@@ -13,7 +13,9 @@
     "lint": "run-s \"lint:*\"",
     "lint:oxlint": "oxlint . --fix",
     "lint:eslint": "eslint . --fix --cache",
-    "format": "oxfmt src/"
+    "format": "oxfmt src/",
+    "format:check": "oxfmt --check src/",
+    "lint:check": "oxlint . && eslint . --no-cache"
   },
   "dependencies": {
     "@fontsource/black-ops-one": "^5.3.0",
