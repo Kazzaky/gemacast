@@ -70,6 +70,12 @@ jobs:
       - name: Install website dependencies
         working-directory: ./web
         run: bun install --frozen-lockfile
+      - name: Website format check
+        working-directory: ./web
+        run: bun run format:check
+      - name: Website lint (read-only)
+        working-directory: ./web
+        run: bun run lint:check
       - name: Website production build
         working-directory: ./web
         run: bun run build
