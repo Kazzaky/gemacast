@@ -92,7 +92,7 @@ The tracked Android project contains hand-written Kotlin; retain it when buildin
 
 ### Local CI runner
 
-Run the local counterpart of the CI workflow from the repository root. It checks the pinned dependency audit, mobile frontend, Rust formatting, Clippy, and the full test suite for the current host.
+Run the local counterpart of the CI workflow from the repository root. It checks the pinned dependency audit, mobile and website production builds, release-script syntax, Rust formatting, Clippy, a host build (including the PC release binary), and the full test suite for the current host.
 
 Python 3.10 or newer is required.
 
@@ -112,7 +112,7 @@ Add `--android` to also run the Android ARM64 Clippy check and Android JVM unit 
 
 Optional switches: `--skip-audit`, `--skip-frontend`, and `--skip-rust`. They are useful for focused iterations; use the default command before committing.
 
-The script validates only the operating system on which it is run; it cannot replace the Windows/macOS/Linux CI matrix. On Linux, it expects the PipeWire 1.2.7 and WirePlumber 0.5.15 development/runtime dependencies described above to be installed.
+The script validates only the operating system on which it is run; it cannot replace the Windows/macOS/Linux CI matrix or installer install/uninstall smoke tests. It syntax-checks all release shell scripts when Bash is available and PowerShell scripts when PowerShell is available. On Linux, it expects the PipeWire 1.2.7 and WirePlumber 0.5.15 development/runtime dependencies described above to be installed.
 
 ### Rust
 
@@ -179,8 +179,9 @@ minification. JNI changes require a release APK check. Shell scripts and
 
 ### Website and containers
 
-Website checks are listed in [web/README.md](web/README.md). The main CI
-frontend job checks the mobile frontend only.
+Website commands are listed in [web/README.md](web/README.md). The CI frontend
+job performs a locked dependency install and production build for the website;
+there are currently no website unit-test files.
 
 Linux and Android container commands are in [docker/README.md](docker/README.md).
 Windows and macOS checks run on native CI hosts.
