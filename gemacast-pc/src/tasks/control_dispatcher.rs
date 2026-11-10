@@ -41,7 +41,7 @@ impl ControlDispatcher {
                 remote_addr,
                 bitrate,
                 response_tx,
-                authorized,
+                authorized_generation,
                 pending_request_id,
                 device_auth,
             } => {
@@ -53,9 +53,14 @@ impl ControlDispatcher {
                 let mut audio_addr = remote_addr;
                 audio_addr.set_port(gemacast_core::network::Ports::AUDIO_UDP);
 
-                let (approved_request_id, identity_to_trust) = if authorized {
-                    (None, None)
-                } else if let Some(request_id) = pending_request_id {
+                let (approved_request_id, identity_to_trust) =
+                    if let Some(generation) = authorized_generation {
+                        if !self.authorizer.is_current(&device_id, generation) {
+                            let _ = response_tx.send(Err("session is no longer active".into()));
+                            return;
+                        }
+                        (None, None)
+                    } else if let Some(request_id) = pending_request_id {
                     let auth = match device_auth.as_ref() {
                         Some(auth) => auth,
                         None => {
@@ -841,7 +846,7 @@ mod tests {
                 remote_addr,
                 bitrate: Some(128_000),
                 response_tx: approved_tx,
-                authorized: false,
+                authorized_generation: None,
                 pending_request_id: Some(request_id.clone()),
                 device_auth: Some(gemacast_core::control::types::DeviceAuthRequest {
                     public_key: public_key.clone(),
@@ -923,7 +928,7 @@ mod tests {
                 remote_addr: make_addr("192.168.1.5:23559"),
                 bitrate: Some(128_000),
                 response_tx: challenge_tx,
-                authorized: false,
+                authorized_generation: None,
                 pending_request_id: None,
                 device_auth: Some(DeviceAuthRequest {
                     public_key: public_key.clone(),
@@ -961,7 +966,7 @@ mod tests {
                 remote_addr: make_addr("192.168.1.5:23559"),
                 bitrate: Some(128_000),
                 response_tx: connect_tx,
-                authorized: false,
+                authorized_generation: None,
                 pending_request_id: None,
                 device_auth: Some(DeviceAuthRequest {
                     public_key: public_key.clone(),
@@ -1018,7 +1023,7 @@ mod tests {
                 remote_addr: make_addr("192.168.1.5:23559"),
                 bitrate: Some(128_000),
                 response_tx: repair_challenge_tx,
-                authorized: false,
+                authorized_generation: None,
                 pending_request_id: None,
                 device_auth: Some(DeviceAuthRequest {
                     public_key: public_key.clone(),
@@ -1055,7 +1060,7 @@ mod tests {
                 remote_addr: make_addr("192.168.1.5:23559"),
                 bitrate: Some(128_000),
                 response_tx: repair_tx,
-                authorized: false,
+                authorized_generation: None,
                 pending_request_id: None,
                 device_auth: Some(DeviceAuthRequest {
                     public_key,
@@ -1151,7 +1156,7 @@ mod tests {
                 remote_addr,
                 bitrate: Some(128_000),
                 response_tx: challenge_tx,
-                authorized: false,
+                authorized_generation: None,
                 pending_request_id: None,
                 device_auth: Some(DeviceAuthRequest {
                     public_key: new_public_key.clone(),
@@ -1197,7 +1202,7 @@ mod tests {
                 remote_addr,
                 bitrate: Some(128_000),
                 response_tx: pair_tx,
-                authorized: false,
+                authorized_generation: None,
                 pending_request_id: None,
                 device_auth: Some(verified_auth.clone()),
             })
@@ -1231,7 +1236,7 @@ mod tests {
                 remote_addr,
                 bitrate: Some(128_000),
                 response_tx: approved_tx,
-                authorized: false,
+                authorized_generation: None,
                 pending_request_id: Some(request_id),
                 device_auth: Some(verified_auth),
             })
@@ -1298,7 +1303,7 @@ mod tests {
                 remote_addr: make_addr("192.168.1.5:23559"),
                 bitrate: Some(128_000),
                 response_tx,
-                authorized: false,
+                authorized_generation: None,
                 pending_request_id: None,
                 device_auth: Some(DeviceAuthRequest {
                     public_key,
@@ -1320,10 +1325,13 @@ mod tests {
     }
 
     #[tokio::test]
-    async fn loopback_adb_connect_should_not_create_persistent_trust() {
+    async fn loopback_connect_should_not_create_persistent_trust() {
         let registry = Arc::new(MockDeviceRegistry::new());
         let tray = Arc::new(MockTrayNotifier::new());
         let trusted_devices = TrustedDeviceStore::in_memory();
+        let device_id = DeviceId("loopback-phone".into());
+        let authorizer = SessionAuthorizer::default();
+        let (_, authorized_generation) = authorizer.issue(device_id.clone()).unwrap();
         let dispatcher = ControlDispatcher {
             registry: registry.clone(),
             tray: tray.clone(),
@@ -1333,22 +1341,21 @@ mod tests {
             streamer_name: "Test PC".into(),
             pc_certificate_fingerprint: "pc-certificate".into(),
             is_broadcasting: Arc::new(AtomicBool::new(true)),
-            authorizer: SessionAuthorizer::default(),
+            authorizer,
             device_auth: DeviceAuthManager::default(),
             trusted_devices: trusted_devices.clone(),
         };
-        let device_id = DeviceId("adb-phone".into());
         let (response_tx, response_rx) = tokio::sync::oneshot::channel();
 
         dispatcher
             .handle_command(ControlCommand::Connect {
                 device_id: device_id.clone(),
-                device_name: "ADB Phone".into(),
+                device_name: "Loopback Phone".into(),
                 source: None,
                 remote_addr: make_addr("127.0.0.1:23559"),
                 bitrate: Some(128_000),
                 response_tx,
-                authorized: true,
+                authorized_generation: Some(authorized_generation),
                 pending_request_id: None,
                 device_auth: None,
             })
@@ -1357,7 +1364,7 @@ mod tests {
 
         assert_eq!(connected.device_registered, Some(true));
         assert!(connected.session_token.is_some());
-        assert!(registry.contains("adb-phone"));
+        assert!(registry.contains("loopback-phone"));
         assert!(trusted_devices.public_key(&device_id).is_none());
         assert!(
             tray.take_calls()
@@ -1432,6 +1439,25 @@ mod tests {
                 device_auth: DeviceAuthManager::default(),
                 trusted_devices: TrustedDeviceStore::in_memory(),
             };
+
+            let (connect_tx, connect_rx) = oneshot::channel();
+            dispatcher
+                .handle_command(ControlCommand::Connect {
+                    device_id: device_id.clone(),
+                    device_name: "Phone".into(),
+                    source: None,
+                    remote_addr: "127.0.0.1:23559".parse().unwrap(),
+                    bitrate: Some(128_000),
+                    response_tx: connect_tx,
+                    authorized_generation: Some(stale_generation),
+                    pending_request_id: None,
+                    device_auth: None,
+                })
+                .await;
+            assert_eq!(
+                connect_rx.await.unwrap().unwrap_err(),
+                "session is no longer active"
+            );
 
             let (source_tx, source_rx) = oneshot::channel();
             dispatcher
