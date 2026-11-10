@@ -89,6 +89,30 @@ The tracked Android project contains hand-written Kotlin; retain it when buildin
 
 ## Validate
 
+### Local CI runner
+
+Run the local counterpart of the CI workflow from the repository root. It checks the pinned dependency audit, mobile frontend, Rust formatting, Clippy, and the full test suite for the current host.
+
+Python 3.10 or newer is required.
+
+Windows (PowerShell):
+
+```powershell
+py -3 scripts/ci-local.py
+```
+
+Linux and macOS:
+
+```bash
+python3 scripts/ci-local.py
+```
+
+Add `--android` to also run the Android ARM64 Clippy check and Android JVM unit tests. The Android SDK, JDK 17, NDK 25.2.9519653, and `cargo-ndk` must already be installed.
+
+Optional switches: `--skip-audit`, `--skip-frontend`, and `--skip-rust`. They are useful for focused iterations; use the default command before committing.
+
+The script validates only the operating system on which it is run; it cannot replace the Windows/macOS/Linux CI matrix. On Linux, it expects the PipeWire 1.2.7 and WirePlumber 0.5.15 development/runtime dependencies described above to be installed.
+
 ### Rust
 
 From the repository root:
