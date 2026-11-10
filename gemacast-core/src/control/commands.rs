@@ -16,7 +16,7 @@ pub enum ControlCommand {
         remote_addr: SocketAddr,
         bitrate: Option<i32>,
         response_tx: oneshot::Sender<Result<PresenceResponse, String>>,
-        authorized: bool,
+        authorized_generation: Option<SessionGeneration>,
         pending_request_id: Option<String>,
         device_auth: Option<DeviceAuthRequest>,
     },
