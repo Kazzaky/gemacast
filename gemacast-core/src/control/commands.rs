@@ -31,11 +31,13 @@ pub enum ControlCommand {
     },
     ChangeSource {
         device_id: DeviceId,
+        generation: SessionGeneration,
         source: AudioSource,
         response_tx: oneshot::Sender<Result<(), String>>,
     },
     ChangeBitrate {
         device_id: DeviceId,
+        generation: SessionGeneration,
         bitrate: Option<i32>,
         response_tx: oneshot::Sender<Result<(), String>>,
     },
