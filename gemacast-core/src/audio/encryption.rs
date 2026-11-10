@@ -7,7 +7,6 @@
 
 use ring::aead::{self, Aad, LessSafeKey, Nonce, UnboundKey};
 use sha2::{Digest, Sha256};
-use std::collections::HashSet;
 use std::fmt;
 
 use super::{FORMAT_OPUS, FORMAT_SILENCE, FORMAT_UNCOMPRESSED, pcm_datagram::PcmDatagram};
@@ -124,13 +123,34 @@ fn packet_nonce(packet: &[u8], header_len: usize) -> Result<[u8; 12], String> {
     Ok(nonce)
 }
 
-/// A small sliding replay window. It permits normal UDP reordering while
-/// rejecting duplicate or stale authenticated datagrams.
-#[derive(Default)]
+/// One ring-buffer slot remembers all packet subtypes observed for a frame.
+#[derive(Clone, Copy, Default)]
+struct ReplaySlot {
+    sequence: u64,
+    subtype_mask: u8,
+    initialized: bool,
+}
+
+/// A bounded sliding replay window. The ring buffer keeps memory and per-packet
+/// work constant even after a long-running uncompressed stream (four UDP chunks
+/// per frame); a HashSet with a large replay horizon would otherwise require
+/// millions of entries and a full-table retain for every increasing sequence.
 pub(crate) struct AudioReplayWindow {
     highest_sequence: u64,
     initialized: bool,
-    seen: HashSet<(u64, u8)>,
+    slots: Vec<ReplaySlot>,
+}
+
+impl Default for AudioReplayWindow {
+    fn default() -> Self {
+        Self {
+            highest_sequence: 0,
+            initialized: false,
+            // One extra slot means two sequence numbers can share a slot only
+            // when their distance is already outside the accepted replay window.
+            slots: vec![ReplaySlot::default(); REPLAY_WINDOW_SEQUENCES as usize + 1],
+        }
+    }
 }
 
 impl AudioReplayWindow {
@@ -138,9 +158,12 @@ impl AudioReplayWindow {
         if packet.len() < 9 {
             return false;
         }
+
         let sequence = u64::from_be_bytes(packet[..8].try_into().unwrap());
         let subtype = if packet[8] == PcmDatagram::FORMAT {
-            if packet.len() < PcmDatagram::HEADER {
+            if packet.len() < PcmDatagram::HEADER
+                || packet[17] as usize >= PcmDatagram::CHUNKS
+            {
                 return false;
             }
             packet[17]
@@ -153,15 +176,24 @@ impl AudioReplayWindow {
         {
             return false;
         }
-        if !self.seen.insert((sequence, subtype)) {
-            return false;
-        }
         if !self.initialized || sequence > self.highest_sequence {
             self.highest_sequence = sequence;
             self.initialized = true;
-            let floor = self.highest_sequence.saturating_sub(REPLAY_WINDOW_SEQUENCES);
-            self.seen.retain(|(seen_sequence, _)| *seen_sequence >= floor);
         }
+
+        let index = (sequence % self.slots.len() as u64) as usize;
+        let slot = &mut self.slots[index];
+        if !slot.initialized || slot.sequence != sequence {
+            slot.sequence = sequence;
+            slot.subtype_mask = 0;
+            slot.initialized = true;
+        }
+
+        let subtype_bit = 1u8 << subtype;
+        if slot.subtype_mask & subtype_bit != 0 {
+            return false;
+        }
+        slot.subtype_mask |= subtype_bit;
         true
     }
 }
@@ -233,5 +265,33 @@ mod tests {
         packet[17] = 1;
         packet[..8].copy_from_slice(&0u64.to_be_bytes());
         assert!(!window.accept(&packet));
+    }
+
+    #[test]
+    fn replay_window_ring_reuses_slots_only_after_sequences_are_stale() {
+        let mut window = AudioReplayWindow::default();
+        let mut packet = vec![0u8; 9];
+        packet[8] = FORMAT_OPUS;
+        packet[..8].copy_from_slice(&17u64.to_be_bytes());
+        assert!(window.accept(&packet));
+
+        let reused_sequence = 17 + REPLAY_WINDOW_SEQUENCES + 1;
+        packet[..8].copy_from_slice(&reused_sequence.to_be_bytes());
+        assert!(window.accept(&packet));
+
+        packet[..8].copy_from_slice(&17u64.to_be_bytes());
+        assert!(!window.accept(&packet));
+    }
+
+    #[test]
+    fn replay_window_rejects_invalid_pcm_chunk_indices_before_marking_them_seen() {
+        let mut window = AudioReplayWindow::default();
+        let mut packet = vec![0u8; PcmDatagram::HEADER];
+        packet[8] = PcmDatagram::FORMAT;
+        packet[..8].copy_from_slice(&42u64.to_be_bytes());
+        packet[17] = PcmDatagram::CHUNKS as u8;
+        assert!(!window.accept(&packet));
+        packet[17] = 0;
+        assert!(window.accept(&packet));
     }
 }
