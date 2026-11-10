@@ -112,7 +112,7 @@ Add `--android` to also run the Android ARM64 Clippy check, Android JVM unit tes
 
 Optional switches: `--skip-audit`, `--skip-frontend`, and `--skip-rust`. They are useful for focused iterations; use the default command before committing.
 
-The script validates only the operating system on which it is run; it cannot replace the Windows/macOS/Linux CI matrix or installer install/uninstall smoke tests. It syntax-checks all release shell scripts when Bash is available and PowerShell scripts when PowerShell is available. On Linux, it expects the PipeWire 1.2.7 and WirePlumber 0.5.15 development/runtime dependencies described above to be installed.
+The script validates only the operating system on which it is run; it cannot replace the Windows/macOS/Linux CI matrix or installer install/uninstall smoke tests. It syntax-checks release, Docker, and Debian maintainer shell scripts (Bash and POSIX sh), plus PowerShell scripts when PowerShell is available. On Windows, Git for Windows Bash is required. On Linux, it expects the PipeWire 1.2.7 and WirePlumber 0.5.15 development/runtime dependencies described above to be installed.
 
 ### Rust
 
