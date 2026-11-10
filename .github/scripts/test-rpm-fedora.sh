@@ -8,7 +8,7 @@ RPM_DIR="${RPM_DIR:-rpm_download}"
 # Install necessary test tools, appindicator libs, pipewire, and android-tools
 dnf update -y
 dnf install -y --setopt=strict=0 which xorg-x11-server-Xvfb xdotool zenity file \
-  libappindicator-gtk3 libayatana-appindicator android-tools pipewire pipewire-devel
+  libappindicator-gtk3 libayatana-appindicator pipewire pipewire-devel
 
 # ── Install ────────────────────────────────────────────────────────────────
 echo "=== Installing RPM ==="
@@ -26,11 +26,11 @@ else
   echo "FAIL: gemacast-pc not found on PATH"; ERRORS=$((ERRORS+1))
 fi
 
-# Verify ADB installed
-if [ -x /usr/lib/gemacast/adb ]; then
-  echo "PASS: /usr/lib/gemacast/adb exists and is executable"
+# Verify the RPM has no legacy ADB runtime dependency.
+if [ -e /usr/lib/gemacast/adb ]; then
+  echo "FAIL: legacy ADB runtime binary was installed"; ERRORS=$((ERRORS+1))
 else
-  echo "FAIL: /usr/lib/gemacast/adb missing or not executable"; ERRORS=$((ERRORS+1))
+  echo "PASS: no ADB runtime binary installed"
 fi
 
 # Proof the scriptlet body actually ran, not just that alien carried its text.
