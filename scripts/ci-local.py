@@ -90,12 +90,12 @@ PIPEWIRE_LOG_LEVEL=2 wireplumber 2>/dev/null &
 wp_pid=$!
 sleep 2
 kill -0 "$wp_pid"
-cargo test --workspace
+cargo test --workspace --locked
 if wpctl get-volume @DEFAULT_AUDIO_SINK@ >/dev/null 2>&1; then
   export GEMACAST_EXPECT_OS_VOLUME=1
 fi
-cargo test -p gemacast-core output_volume -- --nocapture
-cargo test -p gemacast-pc volume_watcher -- --nocapture
+cargo test -p gemacast-core output_volume --locked -- --nocapture
+cargo test -p gemacast-pc volume_watcher --locked -- --nocapture
 '''
     try:
         run(
@@ -138,12 +138,12 @@ def run_host_rust_tests() -> None:
                 volume_env["GEMACAST_EXPECT_OS_VOLUME"] = "1"
         run(
             "macOS output-volume tests (core)",
-            ["cargo", "test", "-p", "gemacast-core", "output_volume", "--", "--nocapture"],
+            ["cargo", "test", "-p", "gemacast-core", "output_volume", "--locked", "--", "--nocapture"],
             env=volume_env,
         )
         run(
             "macOS volume-watcher tests (PC)",
-            ["cargo", "test", "-p", "gemacast-pc", "volume_watcher", "--", "--nocapture"],
+            ["cargo", "test", "-p", "gemacast-pc", "volume_watcher", "--locked", "--", "--nocapture"],
             env=volume_env,
         )
 
