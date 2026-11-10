@@ -95,7 +95,7 @@ impl UpdateDownloader {
         }
 
         // Only publish the final APK path after the complete file has been synced
-        // and its SHA-256 digest matches the signed release manifest.
+        // and its SHA-256 digest matches the release manifest fetched over HTTPS.
         let downloaded_bytes = downloaded_file.publish(&artifact.sha256, destination)?;
         progress.complete();
 
