@@ -66,10 +66,10 @@ for VARIANT in x64 aarch64 universal; do
     echo "FAIL: App icon missing"; ERRORS=$((ERRORS+1))
   fi
 
-  if [ -f "$APP/Contents/MacOS/adb" ]; then
-    echo "PASS: ADB binary bundled"
+  if [ -e "$APP/Contents/MacOS/adb" ]; then
+    echo "FAIL: unexpected ADB binary bundled in $VARIANT"; ERRORS=$((ERRORS+1))
   else
-    echo "WARN: ADB binary not bundled in $VARIANT"
+    echo "PASS: no ADB runtime binary bundled"
   fi
 
   echo ""
