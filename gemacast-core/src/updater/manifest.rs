@@ -45,6 +45,10 @@ impl ReleaseManifest {
         serde_json::from_str(json).map_err(UpdaterError::ManifestParseFailed)
     }
 
+    pub(crate) fn from_bytes(bytes: &[u8]) -> Result<Self, UpdaterError> {
+        serde_json::from_slice(bytes).map_err(UpdaterError::ManifestParseFailed)
+    }
+
     pub(crate) fn newer_release_for(
         &self,
         installed_version: &semver::Version,
