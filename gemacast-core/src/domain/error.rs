@@ -323,6 +323,9 @@ pub enum UpdaterError {
     #[error("failed to read updater manifest body")]
     ManifestBodyReadFailed(#[source] reqwest::Error),
 
+    #[error("updater manifest exceeds the maximum allowed size of {max_bytes} bytes")]
+    ManifestTooLarge { max_bytes: usize },
+
     #[error("failed to parse updater manifest")]
     ManifestParseFailed(#[source] serde_json::Error),
 
