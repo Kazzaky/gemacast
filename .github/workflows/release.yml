@@ -1078,6 +1078,8 @@ jobs:
       - test-android-apk
       - installer-tests-gate
       - sign-release
+      - generate-updater
+      - announce
     if: >-
       always() && needs.host.result == 'success' &&
       (needs.build-msi.result == 'failure' ||
@@ -1090,7 +1092,9 @@ jobs:
        needs.test-macos-dmg.result == 'failure' ||
        needs.test-android-apk.result == 'failure' ||
        needs.installer-tests-gate.result == 'failure' ||
-       needs.sign-release.result == 'failure')
+       needs.sign-release.result == 'failure' ||
+       needs.generate-updater.result == 'failure' ||
+       needs.announce.result == 'failure')
     runs-on: ubuntu-24.04
     environment: Production
     env:
