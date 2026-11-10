@@ -29,11 +29,17 @@ else
   echo "FAIL: gemacast-pc not found on PATH"; ERRORS=$((ERRORS+1))
 fi
 
-# ADB installed
-if [ -x /usr/lib/gemacast/adb ]; then
-  echo "PASS: /usr/lib/gemacast/adb exists and is executable"
+# The desktop package must not bundle the removed ADB runtime.
+PACKAGE_CONTENTS=$(dpkg-deb --contents "$DEB_FILE")
+if echo "$PACKAGE_CONTENTS" | grep -Eiq '/(adb(\.exe)?|AdbWinApi\.dll|AdbWinUsbApi\.dll)([[:space:]]|$)'; then
+  echo "FAIL: ADB binary found in the .deb package"; ERRORS=$((ERRORS+1))
 else
-  echo "FAIL: /usr/lib/gemacast/adb missing or not executable"; ERRORS=$((ERRORS+1))
+  echo "PASS: no ADB runtime binaries are packaged"
+fi
+if [ -e /usr/lib/gemacast/adb ]; then
+  echo "FAIL: legacy ADB binary was installed"; ERRORS=$((ERRORS+1))
+else
+  echo "PASS: no ADB runtime binary installed"
 fi
 
 # Desktop entry
@@ -134,10 +140,10 @@ else
   echo "PASS: gemacast-pc removed from PATH"
 fi
 
-if [ -f /usr/lib/gemacast/adb ]; then
-  echo "FAIL: /usr/lib/gemacast/adb still exists"; ERRORS=$((ERRORS+1))
+if [ -e /usr/lib/gemacast/adb ]; then
+  echo "FAIL: legacy ADB binary still exists after uninstall"; ERRORS=$((ERRORS+1))
 else
-  echo "PASS: ADB binary removed"
+  echo "PASS: no ADB runtime binary remains"
 fi
 
 if [ -f /usr/share/applications/gemacast-pc.desktop ]; then
