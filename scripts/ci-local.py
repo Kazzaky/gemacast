@@ -249,7 +249,7 @@ def run_android_checks() -> None:
         / "gemacast"
         / "generated"
     )
-    kotlinOutput.mkdir(parents=True, exist_ok=True)
+    kotlin_output.mkdir(parents=True, exist_ok=True)
     android_env = {
         "ANDROID_HOME": sdk,
         "ANDROID_NDK_HOME": str(ndk),
@@ -258,7 +258,7 @@ def run_android_checks() -> None:
         "TAURI_ANDROID_PROJECT_PATH": str(android_project),
         "WRY_ANDROID_PACKAGE": "com.apir.gemacast",
         "WRY_ANDROID_LIBRARY": "gemacast_mobile_lib",
-        "WRY_ANDROID_KOTLIN_FILES_OUT_DIR": str(kotlinOutput),
+        "WRY_ANDROID_KOTLIN_FILES_OUT_DIR": str(kotlin_output),
     }
     if "JAVA_HOME" not in os.environ:
         java_home = Path(java).resolve().parent.parent
