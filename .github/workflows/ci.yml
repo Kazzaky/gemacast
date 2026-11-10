@@ -85,11 +85,13 @@ jobs:
     runs-on: ubuntu-22.04
     steps:
       - uses: actions/checkout@v6
-      - name: Validate release shell scripts
+      - name: Validate Bash and POSIX shell scripts
         run: |
-          for script in .github/scripts/*.sh; do
+          for script in .github/scripts/*.sh docker/android-ci.sh; do
             bash -n "$script"
           done
+          sh -n docker/ci.sh docker/entrypoint.sh
+          sh -n linux/deb-postinst.sh linux/deb-postrm.sh
 
   packaging-scripts-windows:
     name: Release PowerShell Script Syntax
@@ -100,7 +102,7 @@ jobs:
         shell: pwsh
         run: |
           $ErrorActionPreference = 'Stop'
-          Get-ChildItem .github/scripts -Filter '*.ps1' | ForEach-Object {
+          @(Get-ChildItem .github/scripts -Filter '*.ps1') + @(Get-ChildItem docker -Filter '*.ps1') | ForEach-Object {
             $tokens = $null
             $parseErrors = $null
             [System.Management.Automation.Language.Parser]::ParseFile(
