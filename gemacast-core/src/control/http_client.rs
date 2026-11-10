@@ -16,13 +16,48 @@ pub struct HttpControlClient {
     pub(crate) credentials: Arc<Mutex<Option<ControlCredentials>>>,
 }
 
-#[derive(Debug, Clone)]
+#[derive(Clone)]
 pub struct ControlCredentials {
     pub device_id: DeviceId,
     pub token: String,
     pub generation: crate::control::SessionGeneration,
     pub pc_device_id: DeviceId,
     pub pc_certificate_fingerprint: String,
+}
+
+impl std::fmt::Debug for ControlCredentials {
+    fn fmt(&self, formatter: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        formatter
+            .debug_struct("ControlCredentials")
+            .field("device_id", &self.device_id)
+            .field("token", &"[REDACTED]")
+            .field("generation", &self.generation)
+            .field("pc_device_id", &self.pc_device_id)
+            .field("pc_certificate_fingerprint", &self.pc_certificate_fingerprint)
+            .finish()
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn debug_output_must_not_expose_the_bearer_token() {
+        let token = "sensitive-session-token".to_string();
+        let credentials = ControlCredentials {
+            device_id: DeviceId("phone-1".into()),
+            token: token.clone(),
+            generation: crate::control::SessionGeneration(7),
+            pc_device_id: DeviceId("pc-1".into()),
+            pc_certificate_fingerprint: "ab".repeat(32),
+        };
+
+        let debug = format!("{credentials:?}");
+        assert!(!debug.contains(&token));
+        assert!(debug.contains("[REDACTED]"));
+        assert!(debug.contains("phone-1"));
+    }
 }
 
 /// Long-term player identity and persistent PC certificate pin storage.
