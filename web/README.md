@@ -14,7 +14,9 @@ Run from `web/` with Bun and Node.js `^22.18.0` or `>=24.12.0`, as specified in
 | `bun install --frozen-lockfile` | Install locked dependencies |
 | `bun run dev` | Start the Vite development server |
 | `bun run type-check` | Check Vue and TypeScript types |
+| `bun run lint:check` | Run Oxlint and ESLint without changing files |
 | `bun run lint` | Run Oxlint and ESLint with automatic fixes |
+| `bun run format:check` | Check formatting under `src/` without changing files |
 | `bun run format` | Format files under `src/` |
 | `bun run test:unit --run` | Run Vitest once |
 | `bun run build` | Type-check and build into `dist/` |
