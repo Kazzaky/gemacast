@@ -55,7 +55,6 @@
     <!-- Close the desktop process before uninstallation or upgrade so its executable
          is not left in use while Windows Installer removes the installation folder. -->
     <util:CloseApplication Id="CloseGemacast" Target="gemacast-pc.exe" Sequence="1" CloseMessage="yes" PromptToContinue="no" RebootPrompt="no" TerminateProcess="5" />
-    <util:CloseApplication Id="CloseAdb" Target="adb.exe" Sequence="2" CloseMessage="no" PromptToContinue="no" RebootPrompt="no" TerminateProcess="3" />
 
     <!-- Don't let MSI hand the close over to Restart Manager. RM runs at
          InstallValidate, before we are allowed to terminate anything, and it cannot
@@ -230,8 +229,8 @@
     <Icon Id="ProductICO" SourceFile="$(var.IconDir)\Product.ico" />
     <Property Id="ARPPRODUCTICON" Value="ProductICO" />
     <Property Id="ARPHELPLINK" Value="https://github.com/Kazzaky/gemacast" />
-    <Property Id="ARPURLINFOABOUT" Value="https://github.com/apirJS/gemacast" />
-    <Property Id="ARPURLUPDATEINFO" Value="https://github.com/apirJS/gemacast/releases" />
+    <Property Id="ARPURLINFOABOUT" Value="https://github.com/Kazzaky/gemacast" />
+    <Property Id="ARPURLUPDATEINFO" Value="https://github.com/Kazzaky/gemacast/releases" />
     <!-- Hide Modify button — single-feature installer, nothing to modify -->
     <Property Id="ARPNOMODIFY" Value="1" />
 
