@@ -1,7 +1,7 @@
 use futures::StreamExt;
 use sha2::{Digest, Sha256};
 use std::io::Write;
-use std::path::Path;
+use std::path::{Path, PathBuf};
 use tokio::sync::mpsc;
 
 use super::UpdateArtifact;
@@ -94,12 +94,13 @@ impl UpdateDownloader {
             progress.record(chunk.len() as u64);
         }
 
-        let downloaded_bytes = downloaded_file.synchronize()?;
+        // Only publish the final APK path after the complete file has been synced
+        // and its SHA-256 digest matches the signed release manifest.
+        let downloaded_bytes = downloaded_file.publish(&artifact.sha256, destination)?;
         progress.complete();
-        downloaded_file.verify_checksum(&artifact.sha256, destination)?;
 
         tracing::info!(
-            "Downloaded update to {} ({downloaded_bytes} bytes)",
+            "Downloaded and verified update to {} ({downloaded_bytes} bytes)",
             destination.display()
         );
 
@@ -131,24 +132,47 @@ impl UpdateDownloader {
 }
 
 struct DownloadedArtifact {
-    destination: String,
-    file: std::fs::File,
+    path: PathBuf,
+    file: Option<std::fs::File>,
     checksum: Sha256,
     bytes_written: u64,
 }
 
 impl DownloadedArtifact {
     fn create(destination: &Path) -> Result<Self, UpdaterError> {
-        let file = std::fs::File::create(destination).map_err(|source| {
+        use std::time::{SystemTime, UNIX_EPOCH};
+
+        let file_name = destination.file_name().ok_or_else(|| {
             UpdaterError::CreateUpdateFile {
                 path: destination.display().to_string(),
+                source: std::io::Error::new(
+                    std::io::ErrorKind::InvalidInput,
+                    "update destination has no file name",
+                ),
+            }
+        })?;
+        let stamp = SystemTime::now()
+            .duration_since(UNIX_EPOCH)
+            .unwrap_or_default()
+            .as_nanos();
+        let temporary_path = destination.with_file_name(format!(
+            "{}.download-{}-{stamp}.part",
+            file_name.to_string_lossy(),
+            std::process::id()
+        ));
+
+        let mut options = std::fs::OpenOptions::new();
+        options.write(true).create_new(true);
+        let file = options.open(&temporary_path).map_err(|source| {
+            UpdaterError::CreateUpdateFile {
+                path: temporary_path.display().to_string(),
                 source,
             }
         })?;
 
         Ok(Self {
-            destination: destination.display().to_string(),
-            file,
+            path: temporary_path,
+            file: Some(file),
             checksum: Sha256::new(),
             bytes_written: 0,
         })
@@ -156,9 +180,11 @@ impl DownloadedArtifact {
 
     fn append(&mut self, chunk: &[u8]) -> Result<(), UpdaterError> {
         self.file
+            .as_mut()
+            .expect("staging file remains open until publication")
             .write_all(chunk)
             .map_err(|source| UpdaterError::WriteUpdateFile {
-                path: self.destination.clone(),
+                path: self.path.display().to_string(),
                 source,
             })?;
         self.checksum.update(chunk);
@@ -166,33 +192,59 @@ impl DownloadedArtifact {
         Ok(())
     }
 
-    fn synchronize(&self) -> Result<u64, UpdaterError> {
-        self.file
-            .sync_all()
-            .map_err(|source| UpdaterError::SyncUpdateFile {
-                path: self.destination.clone(),
-                source,
-            })?;
-        Ok(self.bytes_written)
-    }
-
-    fn verify_checksum(
-        self,
+    fn publish(
+        mut self,
         expected_checksum: &str,
         destination: &Path,
-    ) -> Result<(), UpdaterError> {
-        let actual_checksum = hex::encode(self.checksum.finalize());
-        if actual_checksum.eq_ignore_ascii_case(expected_checksum) {
-            tracing::info!("SHA-256 checksum verified for {}", destination.display());
-            return Ok(());
+    ) -> Result<u64, UpdaterError> {
+        self.file
+            .as_ref()
+            .expect("staging file remains open until publication")
+            .sync_all()
+            .map_err(|source| UpdaterError::SyncUpdateFile {
+                path: self.path.display().to_string(),
+                source,
+            })?;
+
+        let actual_checksum = hex::encode(self.checksum.clone().finalize());
+        if !actual_checksum.eq_ignore_ascii_case(expected_checksum) {
+            return Err(UpdaterError::ChecksumMismatch {
+                path: destination.display().to_string(),
+                expected: expected_checksum.to_string(),
+                actual: actual_checksum,
+            });
         }
 
-        let _ = std::fs::remove_file(destination);
-        Err(UpdaterError::ChecksumMismatch {
-            path: destination.display().to_string(),
-            expected: expected_checksum.to_string(),
-            actual: actual_checksum,
-        })
+        // Close the staging file before renaming; Windows does not allow an
+        // open file handle to be moved in every sharing configuration.
+        self.file.take();
+
+        // std::fs::rename replaces an existing file atomically on Unix but not
+        // on Windows. Remove an older verified APK first on Windows.
+        if destination.exists() {
+            std::fs::remove_file(destination).map_err(|source| {
+                UpdaterError::CommitUpdateFile {
+                    path: destination.display().to_string(),
+                    source,
+                }
+            })?;
+        }
+        std::fs::rename(&self.path, destination).map_err(|source| {
+            UpdaterError::CommitUpdateFile {
+                path: destination.display().to_string(),
+                source,
+            }
+        })?;
+
+        Ok(self.bytes_written)
+    }
+}
+
+impl Drop for DownloadedArtifact {
+    fn drop(&mut self) {
+        // Close first so the partial file can also be removed on Windows.
+        self.file.take();
+        let _ = std::fs::remove_file(&self.path);
     }
 }
 
@@ -285,6 +337,60 @@ mod url_tests {
         ] {
             assert!(validate_artifact_url(url).is_err(), "accepted {url}");
         }
+    }
+
+    #[test]
+    fn only_a_checksum_verified_staging_file_is_published() {
+        use sha2::{Digest, Sha256};
+
+        let root = std::env::temp_dir().join(format!(
+            "gemacast-update-publish-{}-{}",
+            std::process::id(),
+            std::time::SystemTime::now()
+                .duration_since(std::time::UNIX_EPOCH)
+                .unwrap()
+                .as_nanos()
+        ));
+        std::fs::create_dir_all(&root).unwrap();
+        let destination = root.join("gemacast-update.apk");
+        let payload = b"verified update payload";
+        let expected = hex::encode(Sha256::digest(payload));
+
+        let mut staged = DownloadedArtifact::create(&destination).unwrap();
+        let staging_path = staged.path.clone();
+        staged.append(payload).unwrap();
+        assert!(!destination.exists());
+        assert!(staging_path.exists());
+
+        staged.publish(&expected, &destination).unwrap();
+        assert_eq!(std::fs::read(&destination).unwrap(), payload);
+        assert!(!staging_path.exists());
+
+        let _ = std::fs::remove_dir_all(root);
+    }
+
+    #[test]
+    fn checksum_failure_removes_staging_file_and_never_publishes_apk() {
+        let root = std::env::temp_dir().join(format!(
+            "gemacast-update-reject-{}-{}",
+            std::process::id(),
+            std::time::SystemTime::now()
+                .duration_since(std::time::UNIX_EPOCH)
+                .unwrap()
+                .as_nanos()
+        ));
+        std::fs::create_dir_all(&root).unwrap();
+        let destination = root.join("gemacast-update.apk");
+
+        let mut staged = DownloadedArtifact::create(&destination).unwrap();
+        let staging_path = staged.path.clone();
+        staged.append(b"tampered payload").unwrap();
+
+        assert!(staged.publish(&"00".repeat(32), &destination).is_err());
+        assert!(!destination.exists());
+        assert!(!staging_path.exists());
+
+        let _ = std::fs::remove_dir_all(root);
     }
 }
 
