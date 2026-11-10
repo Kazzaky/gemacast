@@ -219,8 +219,9 @@ impl DownloadedArtifact {
         // open file handle to be moved in every sharing configuration.
         self.file.take();
 
-        // std::fs::rename replaces an existing file atomically on Unix but not
-        // on Windows. Remove an older verified APK first on Windows.
+        // Unix rename atomically replaces an existing destination. Windows
+        // requires removing the previous file before the staged file can be moved.
+        #[cfg(windows)]
         if destination.exists() {
             std::fs::remove_file(destination).map_err(|source| {
                 UpdaterError::CommitUpdateFile {
